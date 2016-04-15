@@ -1,4 +1,4 @@
-[English](https://github.com/Kiritow/OJ-Problems-Source#oj-problems-source) | [中文(简体)](https://github.com/Kiritow/OJ-Problems-Source#OJ问题源代码)  
+[English](https://github.com/Kiritow/OJ-Problems-Source#oj-problems-source) | [中文(简体)](https://github.com/Kiritow/OJ-Problems-Source#oj问题源代码)  
 # OJ-Problems-Source
 Source of **AC** Problems on different OJ.  
 If you want to publish your source file, just contact me via GitHub~  
