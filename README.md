@@ -1,4 +1,4 @@
-[English](oj-problems-source) | [中文(简体)](#oj问题源代码)  
+[English](#oj-problems-source) | [中文(简体)](#oj问题源代码)  
 # OJ-Problems-Source
 Source of **AC** Problems on different OJ.  
 If you want to publish your source file, just contact me via GitHub~  
