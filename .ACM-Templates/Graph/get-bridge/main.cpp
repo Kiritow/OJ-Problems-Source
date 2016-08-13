@@ -1,6 +1,5 @@
 int dfs[MAXN], low[MAXN], tim = 0;
-inline void Dfs(int u) 
-{
+inline void Dfs(int u) {
 	dfs[u] = low[u] = ++tim;
 	for (Edge *p = a[u]; p; p = p->next) if (p->flag) {
 		if (!dfs[p->y]) {
@@ -13,4 +12,3 @@ inline void Dfs(int u)
 		p->bridge = p->opt->bridge = true;
 	}
 }
-
