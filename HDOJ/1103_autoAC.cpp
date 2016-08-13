@@ -1,0 +1,118 @@
+#include<stdio.h>
+#include<string.h>
+#include<iostream>
+using namespace std;
+int main()
+{
+    int two,four,six,twotime[10000],threetime[10000];
+    int fourtime[10000],map[10000][3];
+    int a,b,c,d,i,j,k1,k2,k3,num,z,min,flash;
+    char str1[20];
+    while(~scanf("%d%d%d",&two,&four,&six))
+    {
+        if(two==0&&six==0&&four==0) break;
+        scanf("%s",str1);
+        for(i=1;str1[0]!='#';i++)
+        {
+            scanf("%d",&d);
+            a=(str1[0]-48)*10+str1[1]-48;
+            b=(str1[3]-48)*10+str1[4]-48;
+            map[i][1]=a*60+b;
+            map[i][2]=d;
+            scanf("%s",str1);    
+        }
+        num=0;
+        for(j=1;j<=two;j++)
+        twotime[j]=0;
+        for(j=1;j<=four;j++)
+        threetime[j]=0;
+        for(j=1;j<=six;j++)
+        fourtime[j]=0;
+        for(j=1;j<i;j++)
+        {
+            if(map[j][2]<=2)
+            {
+                flash=0;
+                for(z=1;z<=two;z++)
+                if(map[j][1]>=twotime[z])
+                {
+                    num+=map[j][2];
+                    twotime[z]=map[j][1]+30;
+                    flash=1;
+                    break;
+                }
+                if(flash==0)
+                {
+                    min=99999;
+                    for(z=1;z<=two;z++)
+                    if(twotime[z]-map[j][1]<min)
+                    {
+                        min=twotime[z]-map[j][1];
+                        d=z;
+                    }
+                    if(min<=30)
+                    {
+                        num+=map[j][2];
+                        twotime[d]+=30;
+                    }
+                }
+            }
+            else if(map[j][2]>2&&map[j][2]<=4)
+            {
+                flash=0;
+                for(z=1;z<=four;z++)
+                if(map[j][1]>=threetime[z])
+                {
+                    num+=map[j][2];
+                    threetime[z]=map[j][1]+30;
+                    flash=1;
+                    break;
+                }
+                if(flash==0)
+                {
+                    min=99999;
+                    for(z=1;z<=four;z++)
+                    if(threetime[z]-map[j][1]<min)
+                    {
+                        min=threetime[z]-map[j][1];
+                        d=z;
+                    }
+                    if(min<=30)
+                    {
+                        num+=map[j][2];
+                        threetime[d]+=30;
+                    }
+                }
+            }
+            else 
+            {
+                flash=0;
+                for(z=1;z<=six;z++)
+                if(map[j][1]>=fourtime[z])
+                {
+                    num+=map[j][2];
+                    fourtime[z]=map[j][1]+30;
+                    flash=1;
+                    break;
+                }
+                if(flash==0)
+                {
+                    min=99999;
+                    for(z=1;z<=six;z++)
+                    if(fourtime[z]-map[j][1]<min)
+                    {
+                        min=fourtime[z]-map[j][1];
+                        d=z;
+                    }
+                    if(min<=30)
+                    {
+                        num+=map[j][2];
+                        fourtime[d]+=30;
+                    }
+                }
+            }
+        }
+        printf("%d\n",num);
+    }
+    return 0;
+}
