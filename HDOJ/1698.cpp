@@ -80,7 +80,8 @@ int AttrSumUp(int _indexer=1)
         return AttrSumUp(_indexer<<1)+AttrSumUp(_indexer<<1|1);
     }
 }
-
+}
+//
 int main()
 {
     int t;
