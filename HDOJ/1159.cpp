@@ -1,3 +1,9 @@
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include <algorithm>
+using namespace std;
 /// LCS 最长子序列
 namespace LCS
 {
@@ -27,3 +33,17 @@ int deal(const char* a,const char* b)
     return dp[lenb][lena];
 }
 }//End of namespace LCS
+
+char stra[512];
+char strb[512];
+int main()
+{
+    using namespace LCS;
+    while(scanf("%s %s",stra,strb)==2)
+    {
+        memset(dp,0,sizeof(dp));
+        int ans=deal(stra,strb);
+        printf("%d\n",ans);
+    }
+    return 0;
+}
