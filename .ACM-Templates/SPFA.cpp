@@ -5,7 +5,7 @@ const int MAXN = 1005;
 int d[MAXN];/// distance [ From S to ... ]
 int v[MAXN];/// visit
 int q[MAXN];/// 基于数组的队列(也可用queue等...)
-int mp[MAXN][MAXN]; /// mp[i][j] ???<--> j ?? ?1??
+int mp[MAXN][MAXN]; /// mp[i][j] i<--> j is connected.
 int n;/// n is the number of max Point .
 
 void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Both >=1 )
