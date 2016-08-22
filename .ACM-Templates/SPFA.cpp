@@ -1,17 +1,20 @@
+/** SPFA 单源最短路径算法 不支持负环*/
 namespace SPFA
 {
-const int MAXN = 110;
-int d[MAXN];/// distance
+const int MAXN = 1005;
+int d[MAXN];/// distance [ From S to ... ]
 int v[MAXN];/// visit
 int q[MAXN];/// 基于数组的队列(也可用queue等...)
-int n;///点总数
-int m;///边总数
-int mp[MAXN][MAXN]; /// mp[i][j] 表示ｉ<--> j 连通 从1开始
+int mp[MAXN][MAXN]; /// mp[i][j] ???<--> j ?? ?1??
+int n;
 
 int spfa(int s,int t)
 {
-    for(int i=1;i<=n;i++)
-        d[i]=INF,v[i]=0;
+    memset(d,0x3f,sizeof(d));
+    memset(v,0,sizeof(v));
+    /*
+    for(int i=1;i<MAXN;i++)
+        d[i]=INF,v[i]=0;*/
     int cnt=0;
     q[cnt++]=1;
     v[1]=1;
