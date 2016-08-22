@@ -1,0 +1,35 @@
+namespace SPFA
+{
+const int MAXN = 110;
+int d[MAXN];/// distance
+int v[MAXN];/// visit
+int q[MAXN];/// 基于数组的队列(也可用queue等...)
+int n;///点总数
+int m;///边总数
+int mp[MAXN][MAXN]; /// mp[i][j] 表示ｉ<--> j 连通 从1开始
+
+int spfa(int s,int t)
+{
+    for(int i=1;i<=n;i++)
+        d[i]=INF,v[i]=0;
+    int cnt=0;
+    q[cnt++]=1;
+    v[1]=1;
+    d[1]=0;
+    while(cnt>0)
+    {
+        int c=q[--cnt];
+        v[c]=0;
+        for(int i=1;i<=n;i++)
+        {
+            if(mp[c][i]!=-1&&d[i]>d[c]+mp[c][i])
+            {
+                d[i]=d[c]+mp[c][i];
+                if(!v[i])   v[i]=1,q[cnt++]=i;
+            }
+        }
+    }
+    return d[t];
+}
+
+}/// End of NameSpace SPFA
