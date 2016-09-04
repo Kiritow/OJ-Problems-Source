@@ -1,0 +1,52 @@
+#include <cstdio>
+#include <algorithm>
+#include <cmath>
+using namespace std;
+const double E = 1e-12;
+inline
+int dblcmp(double x)
+{
+ if (x > - E && x < E)
+ return 0;
+ return x > 0 ? 1 : -1;
+}
+int main()
+{
+ double num[5];
+ while (true) {
+ int cc = 0;
+ for (int i = 0; i < 3; i++) {
+ scanf("%lf", &num[i]);
+ if (dblcmp(num[i]) == 0)
+ cc++;
+ }
+ if (cc == 3) {
+ break;
+ }
+ sort(num, num + 3);
+ double t = num[0];
+ long long h = floor(num[1] + 0.5), l = floor(num[2] + 0.5);
+ bool ok = false;
+ if (dblcmp(t - 0.25) >= 0 && h >= 90 && l >= 125) {
+ if (dblcmp(7 - t) >= 0 && h <= 155 && l <= 290) {
+ printf("letter\n");
+ ok = true;
+ } else {
+ if (dblcmp(50 - t) >= 0 && h <= 300 && l <= 380) {
+ printf("packet\n");
+ ok = true;
+ } else {
+ double ans = t * 2 + (double)h * 2 + (double)l;
+ if (dblcmp(ans - 2100) <= 0) {
+ printf("parcel\n");
+ ok = true;
+ }
+ }
+ }
+ }
+ if (!ok) {
+ printf("not mailable\n");
+ }
+ }
+ return 0;
+}
