@@ -107,6 +107,11 @@ int main()
         totalans=0;
         dfs(b);
 
+        /// What The Hell ?
+        /// This Type is WRONG:
+        ///     double ans=n*(n-1)/2.0;
+        /// But this type is Accepted !??
+        ///     double ans=0.5*n*(n-1);
         double tans=0.5*n*(n-1);
         /// Use Long Long?
         printf("%I64d %.2lf\n",sum,(double)totalans/tans);
