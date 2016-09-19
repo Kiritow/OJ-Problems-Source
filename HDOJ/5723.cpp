@@ -30,6 +30,7 @@ int findfather(int x)
     return father[x]==x?x:father[x]=findfather(father[x]);
 }
 
+/// Global For DFS
 LL totalans;
 
 LL dfs(int index)
@@ -40,9 +41,10 @@ LL dfs(int index)
     LL nextans=0;
     for(int i=0;i<sz;i++)
     {
-        if(!vis[vec[index].at(i).first])
+		int tt=vec[index].at(i).first;
+        if(!vis[tt])
         {
-            nextans=dfs(vec[index].at(i).first);
+            nextans=dfs(tt);
             ksum+=nextans;
             totalans+=(n-nextans)*nextans*vec[index].at(i).second;
         }
@@ -105,7 +107,7 @@ int main()
         totalans=0;
         dfs(b);
 
-        double tans=n*(n-1)/2.0;
+        double tans=0.5*n*(n-1);
         /// Use Long Long?
         printf("%I64d %.2lf\n",sum,(double)totalans/tans);
     }
