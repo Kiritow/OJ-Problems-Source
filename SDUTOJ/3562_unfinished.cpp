@@ -27,13 +27,13 @@ int pre[1005];
 void spfa(int s)
 {
     int i,j,now;
-    for(i=0; i<=n+1; i++)
+    for(i=0;i<=n+1;i++)
     {
         d[i]=MAX;
         used[i]=false;
     }
     int flag=0;
-    for(i=0; i<=n+1; i++)
+    for(i=0;i<=n+1;i++)
     {
         if(cost[0][i]<MAX)pre[i]=i;//初始化pre数组
     }
@@ -45,7 +45,7 @@ void spfa(int s)
     {
         now=q.front();
         q.pop();
-        for(i=0; i<=n+1; i++)
+        for(i=0;i<=n+1;i++)
         {
             if(d[i]>d[now]+cost[now][i])
             {
@@ -59,7 +59,7 @@ void spfa(int s)
             }
             if(d[i]==d[now]+cost[now][i])
             {
-                if(now!=0)pre[i]=min(pre[i],pre[now]);
+                    if(now!=0)pre[i]=min(pre[i],pre[now]);
             }
         }
     }
@@ -70,18 +70,17 @@ int main()
     int we;
     scanf("%d",&we);
     while(we--)
-    {
-        scanf("%d%d",&n,&m);
+    {scanf("%d%d",&n,&m);
         if(!n&&!m) break;
-        for(i=0; i<=n+1; ++i)
+        for(i=0;i<=n+1;++i)
         {
-            for(j=0; j<=i; j++)
+            for(j=0;j<=i;j++)
             {
                 if(i==j)  cost[i][j]=0;
                 else  cost[i][j]=cost[j][i]=MAX;
             }
         }
-        for(i=0; i<m; i++)
+        for(i=0;i<m;i++)
         {
             scanf("%d%d%d",&a,&b,&c);
             cost[a][b]=c;
