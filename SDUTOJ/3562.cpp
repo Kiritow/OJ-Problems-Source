@@ -9,8 +9,6 @@ using namespace std;
 /** SPFA 单源最短路径算法 不支持负环*/
 #define MAXN 1005
 int d[MAXN];/// distance [ From S to ... ]
-bool v[MAXN];/// visit
-int q[MAXN];/// 基于数组的队列(也可用queue等...)
 int mp[MAXN][MAXN]; /// mp[i][j] i<--> j is connected.
 int n;/// n is the number of max Point .
 
@@ -22,11 +20,9 @@ void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Bo
     {
         if(mp[0][i]!=INF)path[i]=i;//Path Init
         d[i]=INF;
-        v[i]=0;
     }
     queue<int> bus;
     bus.push(StartPoint);
-    v[StartPoint]=1;
     d[StartPoint]=0;
     while(!bus.empty())
     {
@@ -41,7 +37,7 @@ void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Bo
             {
                 d[i]=d[c]+mp[c][i];
                 //path[i]=min(path[i],path[c]);
-                if(!v[i])
+                if(i)
                 {
                     if(c) path[i]=path[c];
                     bus.push(i);
