@@ -1,91 +1,96 @@
+#include <iostream>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
+#include <cmath>
 #include <algorithm>
+#include <climits>
+#include <cstring>
+#include <string>
+#include <set>
+#include <map>
+#include <queue>
+#include <stack>
+#include <vector>
+#include <list>
+#define mod 1000000007
+#define inf 0x3f3f3f3f
+#define pi acos(-1.0)
 using namespace std;
-#define INF 0x3f3f3f3f
-
-/** SPFA 单源最短路径算法 不支持负环*/
-#define MAXN 1005;
-int d[MAXN];/// distance [ From S to ... ]
-bool v[MAXN];/// visit
-int q[MAXN];/// 基于数组的队列(也可用queue等...)
-int mp[MAXN][MAXN]; /// mp[i][j] i<--> j is connected.
-int n,m;/// n is the number of max Point .
-
-int path[MAXN];
-
-void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Both >=1 )
+typedef long long ll;
+#define RANGE 1005
+#define MAX 0x3f3f3f3f
+int cost[RANGE][RANGE];
+int d[RANGE];
+bool used[RANGE];
+int n,m;
+int pre[1005];
+void spfa(int s)
 {
-	for(int i=0; i<=n; i++)
-        {
-            if(mp[0][i]!=INF)path[i]=i;//Path Init
-			d[i]=INF;
-			v[i]=0;
-        }
-    int cnt=0;
-    q[cnt++]=StartPoint;
-    v[StartPoint]=1;
-    d[StartPoint]=0;
-    while(cnt>0)
+    int i,j,now;
+    for(i=0; i<=n+1; i++)
     {
-        int c=q[--cnt];
-        //v[c]=0;
-        for(int i=0;i<=n;i++)
+        d[i]=MAX;
+        used[i]=false;
+    }
+    int flag=0;
+    for(i=0; i<=n+1; i++)
+    {
+        if(cost[0][i]<MAX)pre[i]=i;//初始化pre数组
+    }
+    used[s]=true;
+    d[s]=0;
+    queue<int> q;
+    q.push(s);
+    while(!q.empty())
+    {
+        now=q.front();
+        q.pop();
+        for(i=0; i<=n+1; i++)
         {
-            /// Here : if your mp[i][j] use INF as infinite, then use mp[c][i]!=INF.
-            /// Or you may use mp[i][j]!=-1 && d[i] > d[c] + mp[c][i]
-            if( d[i]>d[c]+mp[c][i] )
+            if(d[i]>d[now]+cost[now][i])
             {
-                d[i]=d[c]+mp[c][i];
-                //path[i]=min(path[i],path[c]);
-                if(!v[i])
+                d[i]=d[now]+cost[now][i];
+                if(used[i]==0)
                 {
-                    if(c) path[i]=path[c];
-                    v[i]==1;
-					q[cnt++]=i;
+                    if(now!=0)pre[i]=pre[now];
+                    used[i]==true;
+                    q.push(i);
                 }
             }
-
-            if(d[i]==d[c]+mp[c][i])
+            if(d[i]==d[now]+cost[now][i])
             {
-                if(c)path[i]=min(path[i],path[c]);
+                if(now!=0)pre[i]=min(pre[i],pre[now]);
             }
         }
     }
 }
-
 int main()
 {
-    int t;
-    scanf("%d",&t);
-    while(t--)
+    int i,j,a,b,c;
+    int we;
+    scanf("%d",&we);
+    while(we--)
     {
         scanf("%d%d",&n,&m);
         if(!n&&!m) break;
-        n=n+1;
-
-        for(int i=0;i<=n;++i)
+        for(i=0; i<=n+1; ++i)
         {
-            for(int j=0;j<=i;++j)
+            for(j=0; j<=i; j++)
             {
-                if(i==j) mp[i][j]=0;
-                else mp[i][j]=mp[j][i]=INF;
+                if(i==j)  cost[i][j]=0;
+                else  cost[i][j]=cost[j][i]=MAX;
             }
         }
-		int tu,tv,tw;
-        for(int i=0;i<m;i++)
+        for(i=0; i<m; i++)
         {
-            scanf("%d%d%d",&tu,&tv,&tw);
-            mp[tu][tv]=tw;
+            scanf("%d%d%d",&a,&b,&c);
+            cost[a][b]=c;
         }
-
         spfa(0);
-
-        if(d[n]<INF)
+        if(d[n+1]<MAX)
         {
-            if(path[n]==n)printf("0\n");
-            else printf("%d\n",path[n]);
+            if(pre[n+1]==n+1)printf("0\n");
+            else printf("%d\n",pre[n+1]);
         }
         else printf("-1\n");
     }
