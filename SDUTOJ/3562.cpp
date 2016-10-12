@@ -44,7 +44,6 @@ void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Bo
                 if(!v[i])
                 {
                     if(c) path[i]=path[c];
-                    v[i]==1;
                     bus.push(i);
                 }
             }
