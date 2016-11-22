@@ -1,0 +1,825 @@
+===============数学方面模板===========
+计算几何模板，包含：
+\begin{itemize}
+\item point2/3 点/向量，方法：向量加+减-，数乘*，点乘*，叉乘%，模dis，辐角arg（2维），旋转rotate（2维），平行parallel，垂直perpend，三维点根据所在面的法向量和一个面上向量投影为二维点以及反投影
+\item line2/3 线，表示为起点+方向向量，方法：点线距和垂足，线线交、线段线段交（线段交可退化，2维），线线距和最近点对（3维，若平行返回任意一对），线的投影（同点）
+\item face3 面，表示为起点+法向量，方法：点面距和垂足，线面交，面面交
+\item circle2 圆，表示为圆心+半径，方法：线圆交，圆圆交，点到圆的切点，圆与圆的公切线（若公切线有两个切点，返回直线两端点为两切点，否则返回直线端点为切点）
+\item convex2 凸包，方法：面积，点不严格在凸包内，线与凸包交，水平序Graham求凸包，半平面交（半平面为传入向量左侧平面）
+\end{itemize}
+说明：对需要求点/线的，点/线作为指针传入，若为NULL表示不需要（默认）；对需要求点/线个数的，返回值为-1表示有无穷多个。
+
+
+#include <cstdio>
+#include <cmath>
+#include <vector>
+#include <deque>
+#include <algorithm>
+const double eps = 1e-13;
+const double pi = 3.14159265358979324;
+struct point2
+{
+    double x, y;
+    point2& operator += (point2 a)
+    {
+        x+=a.x, y+=a.y;
+        return *this;
+    }
+    point2& operator -= (point2 a)
+    {
+        x-=a.x, y-=a.y;
+        return *this;
+    }
+    point2& operator *= (double a)
+    {
+        x*=a, y*=a;
+        return *this;
+    }
+    point2& operator /= (double a)
+    {
+        x/=a, y/=a;
+        return *this;
+    }
+};
+point2 operator + (point2 a, point2 b)
+{
+    point2 c(a);
+    c += b;
+    return c;
+}
+point2 operator - (point2 a, point2 b)
+{
+    point2 c(a);
+    c -= b;
+    return c;
+}
+point2 operator * (point2 a, double b)
+{
+    point2 c(a);
+    c *= b;
+    return c;
+}
+point2 operator * (double a, point2 b)
+{
+    point2 c(b);
+    c *= a;
+    return c;
+}
+point2 operator / (point2 a, double b)
+{
+    point2 c(a);
+    c /= b;
+    return c;
+}
+double operator * (point2 a, point2 b)
+{
+    return a.x*b.x+a.y*b.y;
+}
+double operator % (point2 a, point2 b)
+{
+    return a.x*b.y-a.y*b.x;
+}
+double dis(point2 a)
+{
+    return sqrt(a.x * a.x + a.y * a.y);
+}
+double arg(point2 a)
+{
+    return atan2(a.y, a.x);
+}
+point2 rotate(point2 a, double th)
+{
+    point2 b;
+    b.x = a.x * cos(th) - a.y * sin(th);
+    b.y = a.x * sin(th) + a.y * cos(th);
+    return b;
+}
+int parallel(point2 a, point2 b)
+{
+    return a * a < eps * eps || b * b < eps * eps
+           || (a % b) * (a % b) / ((a * a) * (b * b)) < eps * eps;
+}
+int perpend(point2 a, point2 b)
+{
+    return a * a < eps * eps || b * b < eps * eps
+           || (a * b) * (a * b) / ((a * a) * (b * b)) < eps * eps;
+}
+struct line2
+{
+    point2 a, s;
+};
+struct circle2
+{
+    point2 a;
+    double r;
+};
+double point_line_dis(point2 a, line2 b, point2 *res = NULL)
+{
+    point2 p;
+    p = b.a + ((a - b.a) * b.s) / (b.s * b.s) * b.s;
+    if (res != NULL) *res = p;
+    return dis(a - p);
+}
+int line_line_cross(line2 a, line2 b, point2 *res = NULL)
+{
+    if (parallel(a.s, b.s))
+        if (parallel(b.a - a.a, a.s))
+            return -1;
+        else
+            return 0;
+    double k1 = (b.a - a.a) % b.s / (a.s % b.s);
+    if (res != NULL) *res = a.a + k1 * a.s;
+    return 1;
+}
+int segment_segment_cross(line2 a, line2 b, point2 *res = NULL)
+{
+    if (a.s * a.s < eps * eps && b.s * b.s < eps * eps)
+        if ((b.a - a.a) * (b.a - a.a) < eps * eps)
+        {
+            if (res != NULL) *res = a.a;
+            return 1;
+        }
+        else
+            return 0;
+    if (parallel(a.s, b.s) && parallel(b.a - a.a, a.s) && parallel(a.a - b.a, b.s))
+    {
+        double y1, y2, y3, y4;
+        point2 y1p = a.a, y2p = a.a + a.s, y3p = b.a, y4p = b.a + b.s;
+        if (std::abs(a.s.x) < std::abs(a.s.y) || std::abs(b.s.x) < std::abs(b.s.y))
+            y1 = y1p.y, y2 = y2p.y, y3 = y3p.y, y4 = y4p.y;
+        else
+            y1 = y1p.x, y2 = y2p.x, y3 = y3p.x, y4 = y4p.x;
+        if (y1 > y2) std::swap(y1, y2), std::swap(y1p, y2p);
+        if (y3 > y4) std::swap(y3, y4), std::swap(y3p, y4p);
+        if (y2 - y1 < y4 - y3) std::swap(y1, y3), std::swap(y1p, y3p), std::swap(y2, y4), std::swap(y2p, y4p);
+        if (y3 > y2 + (y2 - y1) * eps || y4 < y1 - (y2 - y1) * eps)
+            return 0;
+        else if (fabs(y3 - y2) < (y2 - y1) * eps || fabs(y3 - y4) < eps)
+        {
+            if (res != NULL) *res = y3p;
+            return 1;
+        }
+        else if (fabs(y4 - y1) < (y2 - y1) * eps || fabs(y1 - y2) < eps)
+        {
+            if (res != NULL) *res = y1p;
+            return 1;
+        }
+        else
+            return -1;
+    }
+    else
+    {
+        double k1 = (b.a - a.a) % a.s, k2 = (b.a + b.s - a.a) % a.s;
+        k1 /= a.s * a.s, k2 /= a.s * a.s;
+        double k3 = (a.a - b.a) % b.s, k4 = (a.a + a.s - b.a) % b.s;
+        k3 /= b.s * b.s, k4 /= b.s * b.s;
+        int ret = (k1 < eps && k2 > -eps || k1 > -eps && k2 < eps)
+                  && (k3 < eps && k4 > -eps || k3 > -eps && k4 < eps);
+        if (ret) line_line_cross(a, b, res);
+        return ret;
+    }
+}
+int line_circle_cross(line2 a, circle2 b, point2 *res1 = NULL, point2 *res2 = NULL)
+{
+    point2 p;
+    double d = point_line_dis(b.a, a, &p);
+    if (d / b.r > 1 + eps)
+        return 0;
+    else if (d / b.r > 1 - eps)
+    {
+        if (res1 != NULL) *res1 = p;
+        return 1;
+    }
+    else
+    {
+        d = sqrt(b.r * b.r - d * d) / dis(a.s);
+        if (res1 != NULL) *res1 = p + d * a.s;
+        if (res2 != NULL) *res2 = p - d * a.s;
+        return 2;
+    }
+}
+int circle_circle_cross(circle2 a, circle2 b, point2 *res1 = NULL, point2 *res2 = NULL)
+{
+    double d = dis(a.a - b.a);
+    point2 u = (b.a - a.a) / d;
+    if (d / (a.r + b.r) > 1 + eps)
+        return 0;
+    else if (d / (a.r + b.r) > 1 - eps)
+    {
+        if (res1 != NULL) *res1 = a.a + u * a.r;
+        return 1;
+    }
+    else if ((d - fabs(a.r - b.r)) / (a.r + b.r) > eps)
+    {
+        double th = acos((a.r * a.r + d * d - b.r * b.r) / (2 * a.r * d));
+        if (res1 != NULL) *res1 = a.a + rotate(u * a.r, th);
+        if (res2 != NULL) *res2 = a.a + rotate(u * a.r, -th);
+        return 2;
+    }
+    else if ((d - fabs(a.r - b.r)) / (a.r + b.r) > -eps)
+    {
+        if (a.r / b.r < 1 - eps)
+        {
+            if (res1 != NULL) *res1 = b.a - u * b.r;
+            return 1;
+        }
+        else if (a.r / b.r > 1 + eps)
+        {
+            if (res1 != NULL) *res1 = a.a + u * a.r;
+            return 1;
+        }
+        else return -1;
+    }
+    else
+        return 0;
+}
+int point_circle_tangent(point2 a, circle2 b, point2 *res1 = NULL, point2 *res2 = NULL)
+{
+    double d = dis(a - b.a);
+    point2 u = (a - b.a) / d;
+    if (d / b.r > 1 + eps)
+    {
+        double th = acos(b.r / d);
+        if (res1 != NULL) *res1 = b.a + rotate(u * b.r, th);
+        if (res2 != NULL) *res2 = b.a + rotate(u * b.r, -th);
+        return 2;
+    }
+    else if (d / b.r > 1 - eps)
+    {
+        if (res1 != NULL) *res1 = a;
+        return 1;
+    }
+    else
+        return 0;
+}
+int circle_circle_tangent(circle2 a, circle2 b, line2 *reso1 = NULL, line2 *reso2 = NULL, line2 *resi1 = NULL, line2 *resi2 = NULL)
+{
+    double d = dis(a.a - b.a);
+    point2 u = (b.a - a.a) / d;
+    int cnt = 0;
+    if ((d - fabs(a.r - b.r)) / (a.r + b.r) > eps)
+    {
+        double th = acos((a.r - b.r) / d);
+        if (reso1 != NULL)
+        {
+            reso1->a = a.a + rotate(u * a.r, th);
+            reso1->s = b.a + rotate(u * b.r, th) - reso1->a;
+        }
+        if (reso2 != NULL)
+        {
+            reso2->a = a.a + rotate(u * a.r, -th);
+            reso2->s = b.a + rotate(u * b.r, -th) - reso2->a;
+        }
+        cnt += 2;
+    }
+    else if ((d - fabs(a.r - b.r)) / (a.r + b.r) > -eps)
+    {
+        if (a.r / b.r < 1 - eps)
+        {
+            if (reso1 != NULL)
+            {
+                reso1->a = b.a - u * b.r;
+                reso1->s = rotate(u, pi / 2);
+            }
+            cnt++;
+        }
+        else if (a.r / b.r > 1 + eps)
+        {
+            if (reso1 != NULL)
+            {
+                reso1->a = a.a + u * a.r;
+                reso1->s = rotate(u, pi / 2);
+            }
+            cnt++;
+        }
+        else return -1;
+    }
+    if (d / (a.r + b.r) > 1 + eps)
+    {
+        double th = acos((a.r + b.r) / d);
+        if (resi1 != NULL)
+        {
+            resi1->a = a.a + rotate(u * a.r, th);
+            resi1->s = b.a - rotate(u * b.r, th) - resi1->a;
+        }
+        if (resi2 != NULL)
+        {
+            resi2->a = a.a + rotate(u * a.r, -th);
+            resi2->s = b.a - rotate(u * b.r, -th) - resi2->a;
+        }
+        cnt += 2;
+    }
+    else if (d / (a.r + b.r) > 1 - eps)
+    {
+        if (resi1 != NULL)
+        {
+            resi1->a = a.a + u * a.r;
+            resi1->s = rotate(u, pi / 2);
+        }
+        cnt++;
+    }
+    return cnt;
+}
+typedef std::vector<point2> convex2;
+double area(const convex2 &a)
+{
+    double s = 0;
+    for (int i = 0; i < a.size(); i++)
+        s += a[i] % a[(i+1)%a.size()];
+    return fabs(s)/2;
+}
+int point_convex_inside(point2 a, const convex2 &b)
+{
+    double sum = 0;
+    for (int i = 0; i < b.size(); i++)
+        sum += fabs((b[i] - a) % (b[(i+1)%b.size()] - a));
+    return fabs(sum / (2*area(b)) - 1) < eps;
+}
+int line_convex_cross(line2 a, const convex2 &b, point2 *res1 = NULL, point2 *res2 = NULL)
+{
+    int cnt = 0;
+    for (int i = 0; i < b.size(); i++)
+    {
+        line2 ltmp;
+        point2 ptmp;
+        ltmp.a = b[i], ltmp.s = b[(i+1)%b.size()] - b[i];
+        int flag = line_line_cross(a, ltmp, &ptmp);
+        if (flag == -1) return -1;
+        if (flag == 0) continue;
+        double k = (ptmp - ltmp.a) * ltmp.s / (ltmp.s * ltmp.s);
+        if (k < eps || k > 1+eps) continue;
+        if (cnt == 0 && res1 != NULL) *res1 = ptmp;
+        else if (cnt == 1 && res2 != NULL) *res2 = ptmp;
+        cnt++;
+    }
+    return cnt;
+}
+int convex_gen_cmp(point2 a, point2 b)
+{
+    return a.y < b.y - eps || fabs(a.y - b.y) < eps && a.x < b.x - eps;
+}
+int convex_gen(const convex2 &a, convex2 &b)
+{
+    std::deque<point2> q;
+    convex2 t(a);
+    std::sort(t.begin(), t.end(), convex_gen_cmp);
+    q.push_back(t[0]), q.push_back(t[1]);
+    for (int i = 2; i < t.size(); i++)
+    {
+        while (q.size() > 1)
+        {
+            point2 p1 = t[i]-q[q.size()-1], p2 = q[q.size()-1]-q[q.size()-2];
+            if (p1 % p2 > 0 || parallel(p1, p2)) q.pop_back();
+            else break;
+        }
+        q.push_back(t[i]);
+    }
+    int pretop = q.size();
+    for (int i = t.size()-1; i >= 0; i--)
+    {
+        while (q.size() > pretop)
+        {
+            point2 p1 = t[i]-q[q.size()-1], p2 = q[q.size()-1]-q[q.size()-2];
+            if (p1 % p2 > 0 || parallel(p1, p2)) q.pop_back();
+            else break;
+        }
+        q.push_back(t[i]);
+    }
+    q.pop_back();
+    if (q.size() < 3)
+    {
+        b.clear();
+        return 0;
+    }
+    b.clear();
+    for (int i = 0; i < q.size(); i++) b.push_back(q[i]);
+    return 1;
+}
+int halfplane_cross_cmp(line2 a, line2 b)
+{
+    double c1 = arg(a.s), c2 = arg(b.s);
+    return c1 < c2-eps || fabs(c1-c2) < eps && b.s % (a.a - b.a) / dis(b.s) > eps;
+}
+int halfplane_cross(const std::vector<line2> &a, convex2 &b)
+{
+    std::vector<line2> t(a);
+    std::sort(t.begin(), t.end(), halfplane_cross_cmp);
+    int j = 0;
+    for (int i = 0; i < t.size(); i++)
+        if (!i || arg(t[i].s) > arg(t[i-1].s) + eps) t[j++] = t[i];
+    if (j > 0 && arg(t[j].s) > arg(t[0].s) + 2*pi - eps) j--;
+    t.resize(j);
+    std::deque<line2> q;
+    q.push_back(t[0]), q.push_back(t[1]);
+    point2 p;
+    for (int i = 2, k = 0; i < t.size(); i++)
+    {
+        for (; k < q.size() && t[i].s % q[k].s > 0; k++);
+        point2 s1 = q[q.size()-1].s, s2 = q[0].s;
+        if (k > 0 && k < q.size() && s1 % s2 > 0 && !parallel(s1, s2))
+        {
+            line_line_cross(q[k], q[k-1], &p);
+            double r1 = t[i].s % (p - t[i].a) / dis(t[i].s);
+            line_line_cross(q[0], q[q.size()-1], &p);
+            double r2 = t[i].s % (p - t[i].a) / dis(t[i].s);
+            if (r1 < eps && r2 < eps)
+            {
+                b.clear();
+                return 0;
+            }
+            else if (r1 > -eps && r2 > -eps)
+                continue;
+        }
+        while (q.size() > 1)
+        {
+            line_line_cross(q[q.size()-1], q[q.size()-2], &p);
+            if (t[i].s % (p - t[i].a) / dis(t[i].s) < eps)
+            {
+                q.pop_back();
+                if (k == q.size()) k--;
+            }
+            else break;
+        }
+        while (q.size() > 1)
+        {
+            line_line_cross(q[0], q[1], &p);
+            if (t[i].s % (p - t[i].a) / dis(t[i].s) < eps)
+            {
+                q.pop_front();
+                k--;
+                if (k < 0) k = 0;
+            }
+            else break;
+        }
+        q.push_back(t[i]);
+    }
+    b.clear();
+    for (int i = 0; i < q.size(); i++)
+    {
+        line_line_cross(q[i], q[(i+1)%q.size()], &p);
+        b.push_back(p);
+    }
+    return 1;
+}
+struct point3
+{
+    double x, y, z;
+    point3& operator += (point3 a)
+    {
+        x+=a.x,y+=a.y,z+=a.z;
+        return *this;
+    }
+    point3& operator -= (point3 a)
+    {
+        x-=a.x,y-=a.y,z-=a.z;
+        return *this;
+    }
+    point3& operator *= (double a)
+    {
+        x*=a, y*=a, z*=a;
+        return *this;
+    }
+    point3& operator /= (double a)
+    {
+        x/=a, y/=a, z/=a;
+        return *this;
+    }
+};
+point3 operator + (point3 a, point3 b)
+{
+    point3 c(a);
+    c += b;
+    return c;
+}
+point3 operator - (point3 a, point3 b)
+{
+    point3 c(a);
+    c -= b;
+    return c;
+}
+point3 operator * (point3 a, double b)
+{
+    point3 c(a);
+    c *= b;
+    return c;
+}
+point3 operator * (double a, point3 b)
+{
+    point3 c(b);
+    c *= a;
+    return c;
+}
+point3 operator / (point3 a, double b)
+{
+    point3 c(a);
+    c /= b;
+    return c;
+}
+double operator * (point3 a, point3 b)
+{
+    return a.x*b.x+a.y*b.y+a.z*b.z;
+}
+point3 operator % (point3 a, point3 b)
+{
+    point3 c;
+    c.x = a.y * b.z - a.z * b.y;
+    c.y = a.z * b.x - a.x * b.z;
+    c.z = a.x * b.y - a.y * b.x;
+    return c;
+}
+double dis(point3 a)
+{
+    return sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+int parallel(point3 a, point3 b)
+{
+    return a * a < eps * eps || b * b < eps * eps
+           || (a % b) * (a % b) / ((a * a) * (b * b)) < eps * eps;
+}
+int perpend(point3 a, point3 b)
+{
+    return a * a < eps * eps || b * b < eps * eps
+           || (a * b) * (a * b) / ((a * a) * (b * b)) < eps * eps;
+}
+struct line3
+{
+    point3 a, s;
+};
+struct face3
+{
+    point3 a, n;
+};
+struct circle3
+{
+    point3 a;
+    double r;
+};
+point2 project(point3 a, face3 b, point3 xs)
+{
+    point3 ys;
+    ys = b.n % xs;
+    point2 c;
+    c.x = ((a - b.a) * xs) / dis(xs), c.y = ((a - b.a) * ys) / dis(ys);
+    return c;
+}
+line2 project(line3 a, face3 b, point3 xs)
+{
+    line2 c;
+    c.a = project(a.a, b, xs), c.s = project(a.a + a.s, b, xs) - c.a;
+    return c;
+}
+point3 revproject(point2 a, face3 b, point3 xs)
+{
+    point3 ys;
+    ys = b.n % xs;
+    return a.x * xs / dis(xs) + a.y * ys / dis(ys) + b.a;
+}
+line3 revproject(line2 a, face3 b, point3 xs)
+{
+    line3 c;
+    c.a = revproject(a.a, b, xs), c.s = revproject(a.a + a.s, b, xs) - c.a;
+    return c;
+}
+double point_line_dis(point3 a, line3 b, point3 *res = NULL)
+{
+    point3 p;
+    p = b.a + ((a - b.a) * b.s) / (b.s * b.s) * b.s;
+    if (res != NULL) *res = p;
+    return dis(a - p);
+}
+double point_face_dis(point3 a, face3 b, point3 *res = NULL)
+{
+    point3 p;
+    p = ((a - b.a) * b.n) / (b.n * b.n) * b.n;
+    if (res != NULL) *res = a - p;
+    return dis(p);
+}
+double line_line_dis(line3 a, line3 b, point3 *resa = NULL, point3 *resb = NULL)
+{
+    point3 p;
+    if (parallel(a.s, b.s))
+    {
+        double d = point_line_dis(a.a, b, &p);
+        if (resa != NULL) *resa = a.a;
+        if (resb != NULL) *resb = p;
+        return d;
+    }
+    point3 n = a.s % b.s;
+    face3 f;
+    f.a = b.a, f.n = n;
+    double d = point_face_dis(a.a, f, &p);
+    double k1 = ((b.a - p) % b.s) * n / (n * n);
+    if (resb != NULL) *resb = p + k1 * a.s;
+    if (resa != NULL) *resa = a.a + k1 * a.s;
+    return d;
+}
+int line_face_cross(line3 a, face3 b, point3 *res = NULL)
+{
+    if (perpend(a.s, b.n))
+        if (perpend(b.a - a.a, b.n))
+            return -1;
+        else
+            return 0;
+    double k = (b.a - a.a) * b.n / (a.s * b.n);
+    if (res != NULL) *res = a.a + k * a.s;
+    return 1;
+}
+int face_face_cross(face3 a, face3 b, line3 *res = NULL)
+{
+    if (parallel(a.n, b.n))
+        if (perpend(b.a - a.a, a.n))
+            return -1;
+        else
+            return 0;
+    point3 s = a.n % b.n;
+    point3 p;
+    line3 t;
+    t.a = a.a, t.s = a.n % s;
+    line_face_cross(t, b, &p);
+    if (res != NULL)
+        res->a = p, res->s = s;
+    return 1;
+}
+
+=============数论模板==========
+数论模板，其中包含：
+\begin{itemize}
+\item ext\_gcd：扩展欧几里得方法解 $ax+by=\gcd(a,b)$，该函数保证当 $a,b>0$ 时 $x>0$。
+\item flsum：欧几里得思想解 $\sum_{x=st}^{ed}\lfloor\frac{ax+b}c\rfloor$。
+\item ind：小步大步走算法求 $a^x=m\pmod b$。
+\item prepare\_inv：$O(p)$ 求模 $p$ 域下所有非零元的逆元（$p$ 素数）。
+\end{itemize}
+
+#include <cstdlib>
+#include <cmath>
+#include <map>
+#include <vector>
+#include <algorithm>
+void ext_gcd(int a, int b, int &x, int &y)
+{
+    if (!b) x = 1, y = 0;
+    else if (!a) x = 1, y = -1;
+    else if (a > b) ext_gcd(a % b, b, x, y), y += a / b * x;
+    else ext_gcd(a, b % a, x, y), x += b / a * y;
+}
+long long flsum_t (long long a, long long b, long long c, long long n)
+{
+    if (n < 0) return 0;
+    if (c < 0) a = -a, b = -b, c = -c;
+    n++;
+    long long res = 0;
+    if (a < 0 || a >= c)
+    {
+        long long ra = (a % c + c) % c;
+        long long k = (a - ra) / c;
+        res += k * n * (n - 1) / 2;
+        a = ra;
+    }
+    if (b < 0 || b >= c)
+    {
+        long long rb = (b % c + c) % c;
+        long long k = (b - rb) / c;
+        res += k * n;
+        b = rb;
+    }
+    if (a * n + b < c) return res;
+    else return res + flsum_t(c, (a * n + b) % c, a, (a * n + b) / c - 1);
+}
+long long flsum (long long a, long long b, long long c, long long st, long long ed)
+{
+    return flsum_t(a, b, c, ed) - flsum_t(a, b, c, st - 1);
+}
+int power(int n, int k, int r)
+{
+    int t = n, s = 1;
+    for (; k; k >>= 1, t = 1LL * t * t % r)
+        if (k & 1) s = 1LL * s * t % r;
+    return s;
+}
+int millerrabin(int x, int tester)
+{
+    int k = x-1;
+    for (; !(k & 1); k >>= 1);
+    int y = power(tester, k, x);
+    if (y == 1) return 1;
+    for (; k < x-1; k <<= 1, y = 1LL * y * y % x)
+        if (y == x-1) return 1;
+    return 0;
+}
+int isprime(int x)
+{
+    if (x == 2 || x == 7 || x == 61) return 1;
+    return millerrabin(x, 2) && millerrabin(x, 7) && millerrabin(x, 61);
+}
+int rho_f(int x, int c, int p)
+{
+    return (1LL * x * x + c) % p;
+}
+int rho(int n)
+{
+    int c = rand() % (n-1) + 1, x = 2, y = x, d = 1;
+    while (d == 1)
+    {
+        x = rho_f(x, c, n);
+        y = rho_f(rho_f(y, c, n), c, n);
+        d = std::__gcd(y > x ? y-x : x-y, n);
+    }
+    return d;
+}
+void factor(int n, std::vector<int> &res)
+{
+    if (n == 1) return;
+    else if (isprime(n)) res.push_back(n);
+    else if (n == 4) res.push_back(2), res.push_back(2);
+    else
+    {
+        int d;
+        while ((d = rho(n)) == n);
+        factor(d, res), factor(n / d, res);
+    }
+}
+int ind(int a, int b, int m)
+{
+    a %= m, b %= m;
+    std::map<int, int> hash;
+    int r = (int)(sqrt(m)), k = 1;
+    if (r * r < m) r++;
+    for (int i = 0; i < r; i++, k = 1LL * k * a % m)
+        if (hash.find(k) == hash.end())
+            hash.insert(std::make_pair(k, i));
+    int s = 1;
+    std::map<int, int>::iterator it;
+    for (int i = 0; i < r; i++, s = 1LL * s * k % m)
+    {
+        int x, y, t;
+        ext_gcd(s, m, x, y);
+        t = 1LL * b * x % m;
+        if ((it = hash.find(t)) != hash.end())
+            return i * r + it->second;
+    }
+}
+void prepare_inv(int *inv, int p)
+{
+    inv[1] = 1;
+    for (int i = 2; i < p; i++)
+        inv[i] = 1LL * inv[p%i] * (p - p/i) % p;
+}
+
+
+=================数值计算=============
+数值计算模板，内含：
+\begin{itemize}
+\item area\_simpson：Simpson法求定积分。
+\item fft\_prepare：求 $maxn$ 次单位根，包括负指数。
+\item dft：做长度为 $N(N|maxn)$ 的DFT，其中若 $f=-1$ 则求IDFT。
+\end{itemize}
+
+#include <cmath>
+#include <algorithm>
+#include <complex>
+const double pi = 3.14159265358979324;
+typedef double (*__F) (double);
+double area(double x, double y, double fl, double fmid, double fr)
+{
+    return (fl + 4 * fmid + fr) * (y - x) / 6;
+}
+double area_simpson_solve(__F f, double x, double mid, double y, double fl, double fmid, double fr, double pre, double zero)
+{
+    double lmid = (x + mid) / 2, rmid = (mid + y) / 2;
+    double flmid = f(lmid), frmid = f(rmid);
+    double al = area(x, mid, fl, flmid, fmid), ar = area(mid, y, fmid, frmid, fr);
+    if (fabs(al + ar - pre) < zero) return al + ar;
+    else return area_simpson_solve(f, x, lmid, mid, fl, flmid, fmid, al, zero) + area_simpson_solve(f, mid, rmid, y, fmid, frmid, fr, ar, zero);
+}
+double area_simpson(__F f, double x, double y, double zero = 1e-10)
+{
+    double mid = (x + y) / 2, fl = f(x), fmid = f(mid), fr = f(y);
+    return area_simpson_solve(f, x, mid, y, fl, fmid, fr, area(x, y, fl, fmid, fr), zero);
+}
+typedef std::complex<double> complex;
+void fft_prepare(int maxn, complex *&e)
+{
+    e = new complex[2 * maxn - 1];
+    e += maxn - 1;
+    e[0] = complex(1, 0);
+    for (int i = 1; i < maxn; i <<= 1)
+        e[i] = complex(cos(2 * pi * i / maxn), sin(2 * pi * i / maxn));
+    for (int i = 3; i < maxn; i++)
+        if ((i & -i) != i) e[i] = e[i - (i & -i)] * e[i & -i];
+    for (int i = 1; i < maxn; i++) e[-i] = e[maxn - i];
+}
+/* f = 1: dft; f = -1: idft */
+void dft(complex *a, int N, int f, complex *e, int maxn)
+{
+    int d = maxn / N * f;
+    complex x;
+    for (int n = N, m; m = n / 2, m >= 1; n = m, d *= 2)
+        for (int i = 0; i < m; i++)
+            for (int j = i; j < N; j += n)
+                x = a[j] - a[j+m], a[j] += a[j+m], a[j+m] = x * e[d * i];
+    for (int i = 0, j = 1; j < N - 1; j++)
+    {
+        for (int k = N / 2; k > (i ^= k); k /= 2);
+        if (j < i) std::swap(a[i], a[j]);
+    }
+}

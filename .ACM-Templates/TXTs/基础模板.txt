@@ -1,0 +1,1008 @@
+/** SPFA 单源最短路径算法 不支持负环*/
+namespace SPFA
+{
+const int MAXN = 1005;
+int d[MAXN];/// distance [ From S to ... ]
+int v[MAXN];/// visit
+int q[MAXN];/// 基于数组的队列(也可用queue等...)
+int mp[MAXN][MAXN]; /// mp[i][j] i --> j is connected.
+int n;/// n is the number of max Point .
+
+void spfa(int StartPoint) /// d[i] is the min distance from StartPoint to i ( Both >=1 )
+{
+    memset(d,0x3f,sizeof(d));
+    memset(v,0,sizeof(v));
+    /*
+    for(int i=1;i<MAXN;i++)
+        d[i]=INF,v[i]=0;*/
+    int cnt=0;
+    q[cnt++]=StartPoint;
+    v[StartPoint]=1;
+    d[StartPoint]=0;
+    while(cnt>0)
+    {
+        int c=q[--cnt];
+        v[c]=0;
+        for(int i=1;i<=n;i++)
+        {
+            /// Here : if your mp[i][j] use INF as infinite, then use mp[c][i]!=INF.
+            /// Or you may use mp[i][j]!=-1 && d[i] > d[c] + mp[c][i]
+            if( mp[c][i]!=INF && d[i]>d[c]+mp[c][i] )
+            {
+                d[i]=d[c]+mp[c][i];
+                if(!v[i])   v[i]=1,q[cnt++]=i;
+            }
+        }
+    }
+}
+
+}/// End of NameSpace SPFA
+
+
+
+线段树模板(Powered By HC TECH - Kiritow)
+include
+/// General includes  
+#include <cstdio>  
+#include <cstdlib>  
+#include <cstring>  
+  
+#include <algorithm>  
+using namespace std;  
+
+最基础的线段树
+/// 最基础的线段树: 单点更新,区间运算(求和)
+namespace SegmentTree
+{
+
+const int MAXN = 1000100;
+const int MAXTREENODE = MAXN<<2;
+
+struct node
+{
+    int lt,rt;
+    int val;
+};
+
+node tree[MAXTREENODE];
+
+/// _internal_v is a indexer of SegmentTree. It guides the procedure to the right node.
+
+void build(int L,int R,int _internal_v=1) /// Build a tree, _internal_v is 1 by default.
+{
+    tree[_internal_v].lt=L;
+    tree[_internal_v].rt=R;
+    if(L==R)
+    {
+        scanf("%d",&tree[_internal_v].val);
+        /// Or: tree[_internal].val = VAL_BY_DEFAULT
+        return;
+    }
+    int mid=(L+R)>>1;
+    build(L,mid,_internal_v<<1);
+    build(mid+1,R,_internal_v<<1|1);/// x<<1 == x*2; x<<1|1 == x*2+1; (faster == slower)
+    /// SegmentTree Main Algorithm
+    tree[_internal_v].val=tree[_internal_v<<1].val+tree[_internal_v<<1|1].val;
+}
+
+void update(int Pos,int Val,int _internal_v=1)/// Update a position, _internal_v is 1 by default.
+{
+    if(tree[_internal_v].lt==tree[_internal_v].rt)
+    {
+        tree[_internal_v].val=Val;
+        return;
+    }
+    /// Update Deep-Loop
+    if(Pos <= tree[_internal_v<<1].rt) update(Pos,Val,_internal_v<<1);
+    if(Pos >= tree[_internal_v<<1|1].lt) update(Pos,Val,_internal_v<<1|1);
+    /// SegmentTree Main Algorithm
+    tree[_internal_v].val = tree[_internal_v<<1].val+tree[_internal_v<<1|1].val;
+}
+
+int _internal_ans;
+inline void _internal_clear_ans()
+{
+    _internal_ans=0;
+}
+inline int _internal_get_ans()
+{
+    return _internal_ans;
+}
+void basic_query(int L,int R,int _internal_v=1)/// Query A Segment [L,R] , _internal_v is 1 by default.
+{
+    if(tree[_internal_v].lt >= L && tree[_internal_v].rt <= R)
+    {
+        _internal_ans+=tree[_internal_v].val;
+        return;
+    }
+    if(L <= tree[_internal_v<<1].rt) basic_query(L,R,_internal_v<<1);
+    if(R >= tree[_internal_v<<1|1].lt) basic_query(L,R,_internal_v<<1|1);
+}
+
+int query(int L,int R)
+{
+    _internal_clear_ans();
+    basic_query(L,R);
+    return _internal_get_ans();
+}
+
+}/// End of namespace SegmentTree
+
+属性线段树
+/// 延迟更新: 区间赋值更新, 区间运算(求和)
+namespace AttributeSegmentTree
+{
+
+const int MAXN = 100100;
+const int MAXTREENODE = MAXN << 2;
+const int ATTR_BY_DEFAULT=1;///默认初始化属性
+
+struct node
+{
+    int lt,rt;
+    int attr;
+};
+
+node tree[MAXTREENODE];
+
+void build(int L,int R,int _indexer=1)
+{
+    tree[_indexer].lt=L;
+    tree[_indexer].rt=R;
+    tree[_indexer].attr=ATTR_BY_DEFAULT;
+    if(L!=R)
+    {
+        int mid=(L+R)>>1;
+        build(L,mid,_indexer<<1);
+        build(mid+1,R,_indexer<<1|1);
+    }
+}
+
+void update(int L,int R,int NewAttr,int _indexer=1)
+{
+    if(tree[_indexer].attr==NewAttr) return; /// Same Attribute. Don't Need Change.
+    if(tree[_indexer].lt==L&&tree[_indexer].rt==R)
+    {
+        /// Right this segment. Update.
+        tree[_indexer].attr=NewAttr;
+        return;
+    }
+    /// This segment has only 1 attribute. New attribute is different.
+    /// So change this segment's manager's attribute to -1 ( Different Attribute in this segment )
+    if(tree[_indexer].attr!=-1)
+    {
+        tree[_indexer<<1].attr=tree[_indexer<<1|1].attr=tree[_indexer].attr;
+        tree[_indexer].attr=-1;
+    }
+    /// If This segment has already had several attributes, operate its subtree by Deep-Loop.
+    int mid=(tree[_indexer].lt+tree[_indexer].rt)>>1;
+    if(L>mid)
+    {
+        update(L,R,NewAttr,_indexer<<1|1);
+    }
+    else if(R<=mid)
+    {
+        update(L,R,NewAttr,_indexer<<1);
+    }
+    else
+    {
+        update(L,mid,NewAttr,_indexer<<1);
+        update(mid+1,R,NewAttr,_indexer<<1|1);
+    }
+}
+
+#define ValueOfAttr(Attr) (Attr)
+int AttrSumUp(int _indexer=1)
+{
+    if(tree[_indexer].attr!=-1)
+    {
+        return ValueOfAttr(tree[_indexer].attr)*(tree[_indexer].rt-tree[_indexer].lt+1);
+    }
+    else
+    {
+        return AttrSumUp(_indexer<<1)+AttrSumUp(_indexer<<1|1);
+    }
+}
+
+}/// End of namespace AttributeSegmentTree
+
+成段更新的线段树(LAZY思想)
+
+/// 延迟更新: 区间运算更新(加法), 区间运算(求和)
+namespace LazySegmentTree
+{
+
+const int MAXN = 100100;
+const int MAXTREENODE = MAXN << 2;
+
+struct node
+{
+    int lt,rt;
+    int val;
+    int add;
+};
+
+node tree[MAXTREENODE];
+
+void _internal_PushUp(int _indexer)
+{
+    tree[_indexer].val=tree[_indexer<<1].val+tree[_indexer<<1|1].val;
+}
+void _internal_PushDown(int _indexer)
+{
+    if(tree[_indexer].add!=0)
+    {
+        /// Broadcast this add value to Left and Right sub-tree node.
+        tree[_indexer<<1].add+=tree[_indexer].add;
+        tree[_indexer<<1|1].add+=tree[_indexer].add;
+        /// Confirm this change by calculate and add changes to sub-trees.
+        tree[_indexer<<1].val+=tree[_indexer].add * (tree[_indexer<<1].rt-tree[_indexer<<1].lt+1);
+        tree[_indexer<<1|1].val+=tree[_indexer].add *(tree[_indexer<<1|1].rt-tree[_indexer<<1|1].lt+1);
+        /// Now Clear this node's add value.
+        tree[_indexer].add=0;
+    }
+}
+
+void build(int L,int R,int _indexer=1)
+{
+    tree[_indexer].lt=L;
+    tree[_indexer].rt=R;
+    tree[_indexer].add=0;/// This must be set to 0.
+    if(L==R)
+    {
+        //scanf("%d",&tree[_indexer].val);
+        tree[_indexer].val = 0;
+        return;
+    }
+    int mid=(L+R)>>1;
+    build(L,mid,_indexer<<1);
+    build(mid+1,R,_indexer<<1|1);
+    /// Update this val from down to up. (>.<)
+    _internal_PushUp(_indexer);
+}
+
+void update(int L,int R,int ValToAdd,int _indexer=1)
+{
+    /// Return when L or R exceeds range. So smart !
+    if(R<tree[_indexer].lt||L>tree[_indexer].rt) return;
+    if(L<=tree[_indexer].lt&&R>=tree[_indexer].rt)
+    {
+        /// This range is covered. So just add the 'add' value, which is called "LAZY"
+        tree[_indexer].add+=ValToAdd;
+        tree[_indexer].val+=ValToAdd*(tree[_indexer].rt-tree[_indexer].lt+1);
+        return;
+    }
+    _internal_PushDown(_indexer);
+    /// This ... Hum.. Seems not so clever...
+    update(L,R,ValToAdd,_indexer<<1);
+    update(L,R,ValToAdd,_indexer<<1|1);
+    _internal_PushUp(_indexer);
+}
+
+int ans;
+void basic_query(int L,int R,int _indexer=1)
+{
+    /// Data to find is not in this range.
+    if(R<tree[_indexer].lt||L>tree[_indexer].rt) return;
+    /// Data to find is right in this range , or covers this range.
+    if(L<=tree[_indexer].lt&&R>=tree[_indexer].rt)
+    {
+        ans+=tree[_indexer].val;
+        return ;
+    }
+    _internal_PushDown(_indexer);
+    int mid=(tree[_indexer].lt+tree[_indexer].rt)>>1;
+    if(R<=mid)
+        basic_query(L,R,_indexer<<1);
+    else if(L>mid)
+        basic_query(L,R,_indexer<<1|1);
+    else
+    {
+        basic_query(L,mid,_indexer<<1);
+        basic_query(mid+1,R,_indexer<<1|1);
+    }
+}
+int query(int L,int R)
+{
+    ans=0;
+    basic_query(L,R);
+    return ans;
+}
+
+}/// End of namespace LazySegmentTree
+
+成段更新，区间合并的线段树
+/// 区间赋值更新, 区间合并, 查找左端
+namespace AttributeMergeSegmentTree
+{
+
+const int MAXN = 100100;
+const int MAXTREENODE = MAXN << 3;
+const int ATTR_BY_DEFAULT=-1;///默认初始化属性 -1 无需操作 0 子树有住户离开 1 子树有住户进入 (来自POJ 3667)
+
+struct node
+{
+    int lt,rt;
+    int lsum,rsum,sum;
+    int attr;
+};
+
+node tree[MAXTREENODE];
+
+void build(int L,int R,int _indexer=1)
+{
+    tree[_indexer].lt=L;
+    tree[_indexer].rt=R;
+    tree[_indexer].attr=ATTR_BY_DEFAULT;
+    tree[_indexer].lsum=tree[_indexer].rsum=tree[_indexer].sum=R-L+1;
+    if(L!=R)
+    {
+        int mid=(L+R)>>1;
+        build(L,mid,_indexer<<1);
+        build(mid+1,R,_indexer<<1|1);
+    }
+}
+
+void update(int L,int R,int NewAttr,int _indexer=1)
+{
+    if(L==tree[_indexer].lt&&R==tree[_indexer].rt)
+    {
+        tree[_indexer].lsum=tree[_indexer].rsum=tree[_indexer].sum=
+            NewAttr==1 ? 0 : tree[_indexer].rt-tree[_indexer].lt+1 ; /// Same as R-L+1
+        tree[_indexer].attr=NewAttr;
+        return;
+    }
+
+    /// Push Down (updated)
+    if(tree[_indexer].attr!=-1)
+    {
+        /// Sync the Attribute to sub-tree
+        tree[_indexer<<1].attr=tree[_indexer<<1|1].attr=tree[_indexer].attr;
+        tree[_indexer].attr=-1;
+        tree[_indexer<<1].rsum=tree[_indexer<<1].lsum=tree[_indexer<<1].sum= tree[_indexer<<1].attr==1 ? 0 : tree[_indexer<<1].rt-tree[_indexer<<1].lt+1;
+        tree[_indexer<<1|1].rsum=tree[_indexer<<1|1].lsum=tree[_indexer<<1|1].sum= tree[_indexer<<1|1].attr==1 ? 0 : tree[_indexer<<1|1].rt-tree[_indexer<<1|1].lt+1;
+    }
+
+    int mid=(tree[_indexer].lt+tree[_indexer].rt)>>1;
+    if(R<=mid)
+    {
+        update(L,R,NewAttr,_indexer<<1);
+    }
+    else if(L>mid)
+    {
+        update(L,R,NewAttr,_indexer<<1|1);
+    }
+    else
+    {
+        update(L,mid,NewAttr,_indexer<<1);
+        update(mid+1,R,NewAttr,_indexer<<1|1);
+    }
+
+    /// Push Up (updated)
+    tree[_indexer].lsum=tree[_indexer<<1].lsum; /// left & left
+    tree[_indexer].rsum=tree[_indexer<<1|1].rsum; /// right & right
+
+    if(tree[_indexer<<1].lsum == tree[_indexer<<1].rt-tree[_indexer].lt+1)
+    {
+        /// Father.LeftSum == RightSon.LeftSum + LeftSon.LeftSum
+        tree[_indexer].lsum+=tree[_indexer<<1|1].lsum;
+    }
+
+    /// Why tree[_indexer].rsum but not tree[_indexer<<1|1].rsum ???
+    if(tree[_indexer].rsum==tree[_indexer<<1|1].rt-tree[_indexer<<1|1].lt+1)
+    {
+        /// Father.RightSum == LeftSon.RightSum + RightSon.RightSum
+        tree[_indexer].rsum+=tree[_indexer<<1].rsum;
+    }
+
+    tree[_indexer].sum=max(max(tree[_indexer<<1].sum,tree[_indexer<<1|1].sum),tree[_indexer<<1].rsum+tree[_indexer<<1|1].lsum);
+
+
+}
+
+int query(int Val,int _indexer=1)
+{
+    if(tree[_indexer].lt==tree[_indexer].rt)
+    {
+        return tree[_indexer].lt;
+    }
+    /// Push Down (updated)
+    if(tree[_indexer].attr!=-1)
+    {
+        /// Sync the Attribute to sub-tree
+        tree[_indexer<<1].attr=tree[_indexer<<1|1].attr=tree[_indexer].attr;
+        tree[_indexer].attr=-1;
+        tree[_indexer<<1].rsum=tree[_indexer<<1].lsum=tree[_indexer<<1].sum= tree[_indexer<<1].attr==1 ? 0 : tree[_indexer<<1].rt-tree[_indexer<<1].lt+1;
+        tree[_indexer<<1|1].rsum=tree[_indexer<<1|1].lsum=tree[_indexer<<1|1].sum= tree[_indexer<<1|1].attr==1 ? 0 : tree[_indexer<<1|1].rt-tree[_indexer<<1|1].lt+1;
+    }
+    int Mid=(tree[_indexer].rt+tree[_indexer].lt)>>1;
+    /// Left
+    if(tree[_indexer<<1].sum>=Val)
+    {
+        return query(Val,_indexer<<1);
+    }
+    /// Both Left and Right
+    else if(tree[_indexer<<1].rsum+tree[_indexer<<1|1].lsum >= Val)
+    {
+        return Mid-tree[_indexer<<1].rsum+1;
+    }
+    else /// Right
+    {
+        return query(Val,_indexer<<1|1);
+    }
+}
+
+}/// End of namespace AttributeMergeSegmentTree
+
+最长连续上升子段(LCIS)与线段树结合(HDU 3308) 模板
+/// 最长连续上升字串 与线段树结合
+namespace LCISSegmentTree
+{
+
+const int MAXN = 1000100;
+const int MAXTREENODE = MAXN<<2;
+
+
+int seq[MAXN];
+
+struct node
+{
+    /// Be Sure That "BounderLen" always equal to "RightBounder - LeftBounder + 1"
+    /// And Bounder Never change in one single test.
+    int leftbounder,rightbounder,bounderlen;
+    int leftseqlen,rightseqlen,mergedseqlen; /// From HDU 3308
+    int leftvalue,rightvalue;
+};
+
+node tree[MAXTREENODE];
+
+/// _internal_v is a indexer of SegmentTree. It guides the procedure to the right node.
+
+void pushup(int _internal_v)
+{
+    /// Left == Left.Left
+    tree[_internal_v].leftseqlen=tree[_internal_v<<1].leftseqlen;
+    tree[_internal_v].leftvalue=tree[_internal_v<<1].leftvalue;
+
+    /// Right == Right.Right
+    tree[_internal_v].rightseqlen=tree[_internal_v<<1|1].rightseqlen;
+    tree[_internal_v].rightvalue=tree[_internal_v<<1|1].rightvalue;
+
+    /// Merged SeqLen is the max one of two sub-tree.MergedSeqLen
+    tree[_internal_v].mergedseqlen=max(tree[_internal_v<<1].mergedseqlen,tree[_internal_v<<1|1].mergedseqlen);
+
+    /// If LeftSon.RightValue < RightSon.LeftValue, a longer Seq may exist.
+    if(tree[_internal_v<<1].rightvalue<tree[_internal_v<<1|1].leftvalue)
+    {
+        /// If LeftSon.LeftSeqLen == LeftSon.BounderLen ...
+        if(tree[_internal_v<<1].leftseqlen == tree[_internal_v<<1].bounderlen )
+        {
+            /// ... ThisNode.LeftSeqLen += RightSon.LeftSeqLen
+            tree[_internal_v].leftseqlen+=tree[_internal_v<<1|1].leftseqlen;
+        }
+
+        /// If RightSon.RightSeqLen == RightSon.BounderLen ...
+        if(tree[_internal_v<<1|1].rightseqlen == tree[_internal_v<<1|1].bounderlen )
+        {
+            /// ... ThisNode.RightSeqLen += Left.RightSeqLen
+            tree[_internal_v].rightseqlen+=tree[_internal_v<<1].rightseqlen;
+        }
+
+        /// ThisNode.MergedSeqLen is the max one between itself and ...
+        /// ... LeftSon.RightSeqLen + RightSon.LeftSeqLen
+        tree[_internal_v].mergedseqlen=
+            max(tree[_internal_v].mergedseqlen,
+                tree[_internal_v<<1].rightseqlen+tree[_internal_v<<1|1].leftseqlen);
+    }
+}
+
+void build(int L,int R,int _internal_v=1) /// Build a tree, _internal_v is 1 by default.
+{
+    tree[_internal_v].leftbounder=L;
+    tree[_internal_v].rightbounder=R;
+    tree[_internal_v].bounderlen=R-L+1;
+    if(L==R)
+    {
+        tree[_internal_v].leftvalue=tree[_internal_v].rightvalue=seq[L];
+        /** SeqLen of Single Position is 1 , of course*/
+        tree[_internal_v].leftseqlen=
+            tree[_internal_v].rightseqlen=
+            tree[_internal_v].mergedseqlen=1;
+        return;
+    }
+    int mid=(L+R)>>1;
+    build(L,mid,_internal_v<<1);
+    build(mid+1,R,_internal_v<<1|1);/// x<<1 == x*2; x<<1|1 == x*2+1; (faster == slower)
+
+    /// Push Up
+    pushup(_internal_v);
+}
+
+void update(int Pos,int Val,int _internal_v=1)/// Update a position, _internal_v is 1 by default.
+{
+    /// Reach a clearly node with same LeftBounder and RightBounder
+    if(tree[_internal_v].leftbounder==tree[_internal_v].rightbounder)
+    {
+        tree[_internal_v].leftvalue=tree[_internal_v].rightvalue=Val;
+        return;
+    }
+    /// Calculate Mid
+    int mid=(tree[_internal_v].leftbounder+tree[_internal_v].rightbounder)>>1;
+    /// If in left then try update in left
+    if(Pos <= mid)
+        update(Pos,Val,_internal_v<<1);
+    else /// Else try update in right
+        update(Pos,Val,_internal_v<<1|1);
+    /// And then push it up !
+    pushup(_internal_v);
+}
+
+int query(int L,int R,int _internal_v=1)
+{
+    /// This Node ( and the segment which is under its control )
+    ///   is included in query area.
+    if(L<=tree[_internal_v].leftbounder && tree[_internal_v].rightbounder <= R)
+    {
+        return tree[_internal_v].mergedseqlen;
+    }
+    /// Calculate Mid
+    int mid=(tree[_internal_v].leftbounder+tree[_internal_v].rightbounder)>>1;
+    /// Answer saved in 'ans'
+    int ans=0;
+
+    /// Query If Segment L~R has common area with ThisNode.LeftBounder~Mid
+    if(L<=mid)
+    {
+        ans=max(ans,query(L,R,_internal_v<<1));
+    }
+
+    /// Query If Segment L~R has common area with Mid+1 ~ ThisNode.RightBounder
+    if(mid<R)
+    {
+        ans=max(ans,query(L,R,_internal_v<<1|1));
+    }
+
+    /// Besides these conditions, the following condition is more complex...
+    /// If LeftNode.RightValue < RightNode.LeftValue
+    ///     (looks like Push Up, but why not push up here ?
+    ///      Is the amount of query action so huge ? )
+    if(tree[_internal_v<<1].rightvalue<tree[_internal_v<<1|1].leftvalue)
+    {
+        /// Here comes the most complex logic.
+        /// Answer is the max one of ...
+        ans=max(ans,
+                /// the minimum one of "Mid - L + 1" (Actually Left Bounder)
+                ///     and LeftSon.RightSeqLen
+                min(mid-L+1,tree[_internal_v<<1].rightseqlen)
+                /// and
+                +
+                /// the minimum one of "R - Mid" (Actually Right Bounder)
+                ///     and RightSon.LeftSeqLen
+                min(R-mid,tree[_internal_v<<1|1].leftseqlen)
+               );
+    }
+
+    /// Return ans. Ans is at least 1
+    return ans;
+}
+
+}/// End of namespace LCISSegmentTree
+
+
+ACM模板——KMP算法
+#include <string>
+#include <iostream>
+#include <cstring>
+using namespace std;
+
+void getfill(string s,int* f)
+{
+    //memset(f,0,sizeof(f));  //根据其前一个字母得到
+    for(size_t i=1;i<s.size();i++)
+    {
+        int j=f[i];
+        while(j && s[i]!=s[j])
+            j=f[j];
+        f[i+1]=(s[i]==s[j])?j+1:0;
+    }
+}
+
+int KMP(string a,string s)
+{
+    int* f=new int[s.size()+32];
+    memset(f,0,sizeof(int)*s.size());
+    getfill(s,f);size_t j=0;
+    for(size_t i=0;i<a.size();i++)
+    {
+        while(j && a[i]!=s[j])
+            j=f[j];
+        if(a[i]==s[j])
+            j++;
+        if(j==s.size()){
+            delete[] f;return i-s.size()+1;
+        }
+    }
+    delete[] f;
+    return -1;
+}
+
+KMP (int)
+
+注: N为数组T的长度, M为数组P的长度. Next数组长度应稍大于P的长度
+void MakeNext(int* P,int M,int* Next){
+    Next[0] = -1;
+    int i = 0, j = -1;
+    while(i<M){
+        if(j==-1||P[i]==P[j]){
+            i++,j++;
+            if(P[i]!=P[j])Next[i] = j;
+            else Next[i] = Next[j];
+        }
+        else j = Next[j];
+    }
+}
+int KMP(int* T,int N,int* P,int M)
+{
+    MakeNext(P,M,Next);
+    int i=0,j=0;
+    while(i<N&&j<M){
+        if(T[i]==P[j]||j==-1)i++,j++;
+        else j = Next[j];
+    }
+    if(j==M)return i-M;
+    else return -2;
+}
+
+ACM模板——区间问题(线段树 RMQ-ST)模板
+找到了一个非常好用的模板，应该主要用于线段树的维护。其中算法部分只需要修改algo_delegate和ValueType即可，极其方便！
+#include <cstdio>
+#include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <functional>
+#define INF 0x3f3f3f3f
+using namespace std;
+const int maxn = 10010;
+struct node
+{
+    int lt,rt,v;
+};
+node tree[maxn<<2];
+
+/** ========== Conditional =========== */
+using ValueType = int;
+
+inline ValueType algo_delegate(ValueType a,ValueType b)
+{
+    return min(a,b);
+}
+/****************************************/
+
+void build(int lt,int rt,int v)
+{
+    tree[v].lt = lt;
+    tree[v].rt = rt;
+    if(lt == rt)
+    {
+        scanf("%d",&tree[v].v);
+        return;
+    }
+    int mid = (lt + rt)>>1;
+    build(lt,mid,v<<1);
+    build(mid+1,rt,v<<1|1);
+    tree[v].v = algo_delegate(tree[v<<1].v,tree[v<<1|1].v);
+}
+void update(int p,int val,int v)
+{
+    if(tree[v].lt == tree[v].rt)
+    {
+        tree[v].v = val;
+        return;
+    }
+    if(p <= tree[v<<1].rt) update(p,val,v<<1);
+    if(p >= tree[v<<1|1].lt) update(p,val,v<<1|1);
+    tree[v].v = algo_delegate(tree[v<<1].v,tree[v<<1|1].v);
+}
+int query(int lt,int rt,int v)
+{
+    if(tree[v].lt >= lt && tree[v].rt <= rt)
+        return tree[v].v;
+    int a = INF,b = INF;
+    if(lt <= tree[v<<1].rt) a = query(lt,rt,v<<1);
+    if(rt >= tree[v<<1|1].lt) b = query(lt,rt,v<<1|1);
+    return algo_delegate(a,b);
+}
+
+最长公共上升子序列 LCIS
+/// LCIS 最长公共上升子序列
+namespace LCIS
+{
+
+const int MAXLEN_A = 500;
+const int MAXLEN_B = 500;
+int dp[MAXLEN_A+5][MAXLEN_B+5];
+int deal(const char* a,const char* b)
+{
+    int lena=strlen(a);
+    int lenb=strlen(b);
+    for(int i=1;i<=lenb;i++)
+    {
+        int k=0;
+        for(int j=1;j<=lena;j++)
+        {
+            dp[i][j]=dp[i-1][j];/// when b[i-1] != a[j-1]
+            if(b[i-1]>a[j-1]) k=max(k,dp[i-1][j]);
+            else if(b[i-1]==a[j-1]) dp[i][j]=k+1;
+        }
+    }
+    int ans=0;
+    for(int i=1;i<=lena;i++) ans=max(ans,dp[lenb][i]);
+    return ans;
+}
+
+}
+//End of namespace LCIS
+
+最长公共子序列  LCS (Updated On 20160819)
+/// LCS 最长子序列
+namespace LCS
+{
+const int MAXLEN_A = 512;
+const int MAXLEN_B = 512;
+int dp[MAXLEN_A][MAXLEN_B];
+int deal(const char* a,const char* b)
+{
+    int lena=strlen(a);
+    int lenb=strlen(b);
+    for(int i=0;i<=lenb;i++)
+    {
+        for(int j=0;j<=lena;j++)
+        {
+            if(i==0) dp[i][j]=0;
+            else if(j==0) dp[i][j]=0;
+            else if(b[i-1]==a[j-1])
+            {
+                dp[i][j]=dp[i-1][j-1]+1;
+            }
+            else
+            {
+                dp[i][j]=max(dp[i-1][j],dp[i][j-1]);
+            }
+        }
+    }
+    return dp[lenb][lena];
+}
+}//End of namespace LCS
+
+最长上升子序列(LIS) 更好的方案（经过比赛检测...） 其中lower_bound来自<vector>
+//最长上升子序列 Longest Increasing Subsequence O(nlogn)
+int b[N];
+int LIS(int a[], int n) {
+  int len = 1; b[0] = a[0];
+  for (int i = 1; i < n; i++) {
+    b[a[i] > b[len - 1] ? len++ : lower_bound(b, b + len, a[i]) - b] = a[i]; //非降换为>=和upper_bound
+  }
+  return len;
+}
+
+Floyd算法是用于求解所有点对之间的最短距离，如果只需要求一个起点到所有其他点的最短距离应该使用Dijstra算法。
+
+Floyd核心Logic
+
+注：m[f][t] 意为 从f出发到t点的距离. 输入可能是边的形式或者是图的形式，需要灵活处理。
+
+for(int k=1;k<=n;k++)  
+        {  
+            for(int f=1;f<=n;f++)  
+            {  
+                for(int t=1;t<=n;t++)  
+                {  
+                    if(f==t||f==k||t==k) continue;  
+                    if(m[f][k]!=INF&&m[k][t]!=INF)  
+                    {  
+                        int total=m[f][k]+m[k][t];  
+                        if(total<m[f][t]||m[f][t]==INF)  
+                        {  
+                            m[f][t]=total;  
+                        }  
+                    }  
+                }  
+            }  
+        } 
+
+ACM模板——快速判断素数
+by Coffee
+//Written by Coffee. 判断素数
+bool isPrime(int num)
+{
+	if (num == 2 || num == 3)
+	{
+		return true;
+	}
+	if (num % 6 != 1 && num % 6 != 5)
+	{
+		return false;
+	}
+	for (int i = 5; i*i <= num; i += 6)
+	{
+		if (num % i == 0 || num % (i+2) == 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+
+//From Baidu. 快速幂
+int PowerMod(int a, int b, int c)
+{
+    int ans = 1;
+    a = a % c;
+    while(b>0)
+    {
+        
+        if(b % 2 == 1)
+            ans = (ans * a) % c;
+        b = b/2;
+        a = (a * a) % c;
+    }
+    return ans;
+}
+
+///约瑟夫问题,n个人,查m个数  
+int JosephusProblem_Solution4(int n, int m)  
+{  
+    if(n < 1 || m < 1)  
+        return -1;  
+  
+    vector<int> f(n+1,0);  
+    for(unsigned i = 2; i <= n; i++)  
+        f[i] = (f[i-1] + m) % i;  
+  
+    return f[n];  
+} 
+
+DP方法求解最长子段,复杂度O(N)
+
+不需要求最长子段起终点
+int MaxSum(int n,int *a)
+{
+    int sum=NINF,b=0;
+    for(int i=0; i<n; i++)
+    {
+        if(b>0)
+        {
+            b+=a[i];
+        }
+        else
+        {
+            b=a[i];
+        }
+        if(b>sum)
+        {
+            sum = b;
+        }
+    }
+    return sum;
+}
+需要求解最长子段起终点
+typedef struct
+{
+    int result,start,ends;
+}PACK;
+PACK MaxSum(int N,int* a)
+{
+    int sum=-1;
+    int tmp=0;
+    int start=0;
+    int ends=0;
+    int tmpstart=0;
+    int tmpends=0;
+    for(int i=0;i<N;i++)
+    {
+        if(tmp>0)
+        {
+            tmp+=a[i];
+            tmpends=i;
+        }
+        else
+        {
+            tmp=a[i];
+            tmpstart=i;
+        }
+        if(tmp>sum)
+        {
+            sum=tmp;
+            start=tmpstart;
+            ends=tmpends;
+        }
+    }
+    if(ends<start)
+    {
+        ends=start;
+    }
+    PACK c;
+    c.result=sum;
+    c.start=start;
+    c.ends=ends;
+    return c;
+}
+DP方法求最大子矩阵
+#define MAXN 128
+typedef int ARRAY[MAXN][MAXN];
+int MaxSumRect(int m,int n,ARRAY& a)
+{
+    int sum = NINF;
+    int* b = new int[n+1];
+    for(int i=0; i<m; i++)//枚举行
+    {
+        memset(b,0,sizeof(int)*(n+1));
+
+        for(int j=i; j<m; j++) //枚举初始行i,结束行j
+        {
+            for(int k=0; k<n; k++)
+            {
+                b[k] += a[j][k];//b[k]为纵向列之和
+            }
+            int max = MaxSum(n,b);
+            if(max>sum)
+            {
+                sum = max;
+            }
+
+        }
+    }
+    delete[] b;
+    return sum;
+}
+
+正方形矩阵求解
+int MaxSumSquare(int N,ARRAY& a)  
+{  
+    return MaxSumRect(N,N,a);  
+}  
+
+无穷常数
+const int INF = 0x3f3f3f3f;  
+const int NINF = 0xc0c0c0c0;  
+
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+其他代码(GitHub: kiritow/OJ-Problems-Source)
+
+
+namespace RMQ_ST
+{
+const int MAXN=10000;
+int f[MAXN][MAXN];
+int a[MAXN];
+int n;
+void init()
+{
+    for(int i = 1;i<=n;i++)
+    {
+        f[i][0]=a[i];
+    }
+    for(int j=1;(1<<j)<=n;j++)
+    {
+        for(int i=1;i+(i<<j)-1<=n;i++)
+        {
+            f[i][j]=max(f[i][j-1],f[i+(1<<j-1)][j-1]);
+        }
+    }
+}
+
+int rmq(int L,int R)
+{
+    int k=0;
+    while((1<<(k+1)<=R-L+1)) k++;
+    return max(f[L][k],f[R-(1<<k)+1][k]);
+}
+
+
+}/// End of namespace RMQ_ST
+
+

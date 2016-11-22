@@ -1,0 +1,772 @@
+==================混合模板组================
+
+============手速模板（全）==============
+#if __cplusplus >= 201103L
+#include <bits/stdc++.h>
+#endif
+#include <algorithm>
+#include <bitset>
+#include <cassert>
+#include <cctype>
+#include <climits>
+#include <cmath>
+#include <complex>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <functional>
+#include <iomanip>
+#include <iostream>
+#include <list>
+#include <map>
+#include <numeric>
+#include <queue>
+#include <set>
+#include <stack>
+#include <string>
+#include <vector>
+using namespace std;
+
+typedef long long ll;
+const int N = 100005;
+const int M = 1000000007;
+
+int n, m;
+int a[N];
+
+int main() {
+  int C = 0, T;
+  scanf("%d", &T);
+  while (++C <= T) {
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) {
+      scanf("%d", &a[i]);
+    }
+
+  }
+}
+
+===============手速模板（最小）===============
+#include <bits/stdc++.h>
+using namespace std;
+
+typedef long long ll;
+const int N = 100005;
+const int M = 1000000007;
+
+int n, m;
+int a[N];
+
+int main() {
+  while (~scanf("%d", &n)) {
+    for (int i = 0; i < n; i++) {
+      scanf("%d", &a[i]);
+    }
+
+  }
+}
+
+
+=============博弈==================
+//威佐夫博弈 Wizov game
+//有两堆各若干个物品, 两个人轮流从某一堆或同时从两堆中取同样多的物品, 规定每次至少取一个, 多者不限, 最后取光者得胜
+//ak = [k(1 + √ 5) / 2], bk = ak + k (k = 0, 1, 2, ..., n 方括号表示取整函数)
+const double gs = (sqrt(5.0) + 1.0) / 2.0;
+bool Wizov(ll a, ll b) {
+  return min(a, b) == (ll)(abs(a - b) * gs);
+}
+//威佐夫博弈 1 <= N <= 1e18
+const int N = 95; //~95 for 1e18
+ll fib[N] = { 0, 1 }; //预处理fibonacci数列
+bool s[N];
+bool Wizov(ll a, ll b) {
+  int w = upper_bound(fib + 1, fib + N, a) - fib - 1, pos = 1; ll ret = 0;
+  for (int i = w; i > 0; i--) {
+    if (a >= fib[i]) { s[i] = true; a -= fib[i]; }
+    else { s[i] = false; }
+  }
+  while (!s[pos]) { pos++; }
+  for (int i = pos & 1 ? w - 2 : w; i >= 0; i--) {
+    if (s[i]) { ret += fib[i + 1]; }
+  }
+  return ret == b;
+}
+//尼姆博奕 Nimm Game
+//有三堆各若干个物品, 两个人轮流从某一堆取任意多的物品, 规定每次至少取一个, 多者不限, 最后取光者得胜
+//计算从1 - n范围内的SG值
+//Array存储可以走的步数, Array[0]表示可以有多少种走法
+//Array[]需要从小到大排序
+//HDU1847 博弈SG函数
+//1.可选步数为1-m的连续整数，直接取模即可，SG(x) = x % (m + 1); (即巴什博奕 Bash game)
+//2.可选步数为任意步，SG(x) = x;
+//3.可选步数为一系列不连续的数，用SG(x)计算
+int sg[N];
+bool Hash[N];
+int SG(int Array[], int n) {
+  memset(sg, 0, sizeof(sg));
+  for (int i = 0; i <= n; ++i) {
+    memset(Hash, 0, sizeof(Hash));
+    for (int j = 1; j <= Array[0]; j++) {
+      if (i < Array[j]) { break; }
+      Hash[sg[i - Array[j]]] = true;
+    }
+    for (int j = 0; j <= n; j++) {
+      if (!Hash[j]) { sg[i] = j; break; }
+    }
+  }
+  return sg[n];
+}
+//带输出方案
+int a[N], ans[N][2]; //a[]为各堆石子数量
+void printNim(int n) { //石子堆数
+  int cnt = 0, ret = 0;
+  for (int i = 0; i < n; i++) { ret ^= a[i]; }
+  for (int i = 0; i < n; i++) {
+    if (a[i] > (ret ^ a[i])) {
+      ans[cnt][0] = a[i]; ans[cnt][1] = s ^ a[i];
+      cnt++;
+    }
+  }
+  if (cnt) { //判断先手是胜是负
+    puts("Yes");
+    printf("%d\n", cnt); //输出使先手为胜的方案的数目
+    for (int i = 0; i < cnt; i++) {
+      printf("%d %d\n", ans[i][0], ans[i][1]);  //输出若先手为胜的走法
+    }
+  } else { puts("No"); }
+}
+//树上删边游戏
+//给定一棵n个点的有根树, 每次可以删掉一个子树
+//则叶子节点的SG值为0, 非叶子节点的SG值为其所有孩子节点(SG值 + 1)的异或和
+
+================动态规划==================
+//最大子段和 O(n)
+ll maxSum(int a[], int n, int &st, int &ed) {
+  ll mx = a[0], mxc = 0; st = ed = 0;
+  for (int i = 1; i < n; i++) {
+    if (mxc > 0) { mxc += a[i]; }
+    else { mxc = a[i]; s = i; }
+    if (mxc > mx) { mx = mxc; st = s; ed = i; }
+  }
+  return mx;
+}
+//循环数组最大子段和 O(n)
+const ll INF = 0x7f7f7f7f7f7fLL;
+ll maxSum_adj(int a[], int n) {
+  ll mx = -INF, mxc = 0, mn = INF, mnc = 0, sum = 0;
+  for (int i = 0; i < n; i++) {
+    mxc = a[i] + (mxc > 0 ? mxc : 0);
+    if (mx < mxc) { mx = mxc; }
+    mnc = a[i] + (mnc > 0 ? 0 : mnc);
+    if (mn > mnc) { mn = mnc; }
+    sum += a[i];
+  }
+  return mx < 0 || mx > sum - mn ? mx : sum - mn;
+}
+//最大M子段和 O(nm)
+ll dp[N], mxsum[N];
+ll mxMSum(int a[], int n, int m) {
+  ll mx;
+  for (int i = 1; i <= m; i++) {
+    mx = 0x8f8f8f8f8f8f8f8fLL;
+    for (int j = i; j <= n; j++) {
+      dp[j] = max(dp[j - 1], mxsum[j - 1]) + a[j];
+      mxsum[j - 1] = mx; mx = max(mx, dp[j]);
+    }
+  }
+  return mx;
+}
+//最大子阵和 O(n^3)
+ll presum[N][N];
+ll maxSum(int a[][N], int h, int w, int &x1, int &y1, int &x2, int &y2) {
+  ll ret = a[0][0], sum; x1 = y1 = x2 = y2 = 0;
+  for (int i = 0; i < h; i++) {
+    presum[i][0] = 0;
+    for (int j = 0; j < w; j++) { presum[i][j + 1] = presum[i][j] + a[i][j]; }
+  }
+  for (int j = 0; j < w; j++) {
+    for (int k = j, s; k < w; k++) {
+      sum = s = 0;
+      for (int i = 0; i < h; i++, s = sum > 0 ? s : i) {
+        if ((sum = (sum > 0 ? sum : 0) + presum[i][k + 1] - presum[i][j]) > ret) {
+          ret = sum; x1 = s; y1 = j; x2 = i; y2 = k;
+        }
+      }
+    }
+  }
+  return ret;
+}
+//最长上升子序列 Longest Increasing Subsequence O(nlogn)
+int b[N];
+int LIS(int a[], int n) {
+  int len = 1; b[0] = a[0];
+  for (int i = 1; i < n; i++) {
+    b[a[i] > b[len - 1] ? len++ : lower_bound(b, b + len, a[i]) - b] = a[i]; //非降换为>=和upper_bound
+  }
+  return len;
+}
+//最长上升子序列数量 O(nlogn)?
+int b[N], l[N]; ll cnt[N];
+vector<int> v[N];
+ll LIS(int a[], int n) {
+  int len = 1; b[0] = a[0]; l[0] = 1; v[1].push_back(0);
+  for (int i = 1; i < n; i++) {
+    int pos = a[i] > b[len - 1] ? len++ : lower_bound(b, b + len, a[i]) - b;
+    b[pos] = a[i]; l[i] = pos + 1;
+    v[l[i]].push_back(i);
+  }
+  ll ret = 0;
+  for (int i = 0; i < n; i++) {
+    if (l[i] == 1) { cnt[i] = 1; continue; }
+    for (int j = 0, ll = l[i] - 1; j < (int)v[ll].size() && v[ll][j] <= i; j++) {
+      if (a[v[ll][j]] < a[i]) { cnt[i] += cnt[v[ll][j]]; }
+    }
+    if (l[i] == len) { ret += cnt[i]; }
+  }
+  return ret;
+}
+//长度为k的上升子序列个数 O(knlogn)
+int n, k;
+ll bit[M][N];
+inline int lowbit(int x) { return x & -x; }
+void add(int id, int i, ll val) { while (i <= n) { bit[id][i] += val; i += lowbit(i); } }
+ll sum(int id, int i) { ll ret = 0; while (i) { ret += bit[id][i]; i -= lowbit(i); } return ret; }
+int main() {
+  scanf("%d%d", &n, &k);
+  add(0, 1, 1);
+  for (int i = 1, x; i <= n; i++) {
+    scanf("%d", &x);
+    for (int j = 1; j <= k; j++) { add(j, x, sum(j - 1, x - 1)); } //非降改为x
+  }
+  printf("%I64d\n", sum(k, n)); //n为元素最大值
+}
+//最长公共子序列 Longest Common Subsequence O(n^2)
+int dp[N][N];
+int LCS(char *a, char *b) {
+  int m = strlen(a), n = strlen(b);
+  for (int i = 1; i <= m; i++) {
+    for (int j = 1; j <= n; j++) {
+      if (a[i - 1] == b[j - 1]) { dp[i][j] = dp[i - 1][j - 1] + 1; }
+      else { dp[i][j] = max(dp[i - 1][j], dp[i][j - 1]); }
+    }
+  }
+  return dp[m][n];
+}
+void printLCS(char *a, char *b) {
+  char s[N] = {0};
+  for (int i = strlen(a), j = strlen(b), k = dp[i][j]; i && j;) {
+    if (a[i - 1] == b[j - 1] && dp[i][j] == dp[i - 1][j - 1] + 1) { s[--k] = a[--i]; --j; }
+    else if (dp[i - 1][j] > dp[i][j - 1]) { i--; }
+    else { j--; }
+  }
+  puts(s);
+}
+//最长公共子串 Longest Common Substring
+//DP O(n^2)
+int dp[2][N];
+int LCS_dp(char *a, char *b, int &st1, int &st2) {
+  int m = strlen(a), n = strlen(b), ret = 0, cur = 0; st1 = st2 = -1;
+  for (int i = 0; i < m; i++, cur ^= 1) {
+    for (int j = 0; j < n; j++) {
+      if (a[i] == b[j]) {
+        dp[cur][j] = i == 0 || j == 0 ? 1 : dp[cur ^ 1][j - 1] + 1;
+        if (dp[cur][j] > ret) { ret = dp[cur][j]; st1 = i + 1 - ret; st2 = j + 1 - ret; }
+      }
+    }
+  }
+  //outputLCS(a, ret, st1);
+  return ret;
+}
+//后缀数组 O(nlogn)
+char *suf[N];
+int pstrcmp(const void *p, const void *q) {
+  return strcmp(*(char **)p, *(char **)q);
+}
+int comlen_suf(const char *p, const char *q) {
+  for (int len = 0; *p && *q && *p++ == *q++;) {
+    len++;
+    if (*p == '#' || *q == '#') { return len; }
+  }
+  return 0;
+}
+int LCS_suffix(char *a, char *b) {
+  int m = strlen(a), n = strlen(b), ret = 0, suf_index = 0, len_suf = m + n + 1;
+  char *arr = new char[len_suf + 1];
+  strcpy(arr, a); arr[m] = '#'; strcpy(arr + m + 1, b);
+  for (int i = 0; i < len_suf; i++) { suf[i] = &arr[i]; }
+  qsort(suf, len_suf, sizeof(char *), pstrcmp);
+  for (int i = 0; i < len_suf - 1; i++) {
+    int len = comlen_suf(suf[i], suf[i + 1]);
+    if (len > ret) { ret = len; suf_index = i; }
+  }
+  //outputLCS(suf[suf_index], ret);
+  delete[] arr; return ret;
+}
+void outputLCS(char *s, int len, int i = 0) {
+  for (; len--; i++) { putchar(s[i]); } puts("");
+}
+//DP 下界O(nlogn) 上界O(nmlog(nm))
+int c[N * N], d[N * N];
+int LCS_dp(char *a, char *b) {
+  vector<int> pos[26]; int k = 0, len = 1; d[0] = c[0];
+  for (int i = strlen(b) - 1; i >= 0; i--) { pos[b[i] - 'a'].push_back(i); }
+  for (int i = 0; a[i]; i++) {
+    for (int j = 0; j < (int)pos[a[i] - 'a'].size(); j++) { c[k++] = pos[a[i] - 'a'][j]; }
+  }
+  for (int i = 1; i < k; i++) {
+    d[c[i] > d[len - 1] ? len++ : lower_bound(d, d + len, c[i]) - d] = c[i];
+  }
+  return len;
+}
+//最长公共递增子序列 GCIS O(n^2)
+int dp[N], f[N][N];
+int GCIS(int a[], int la, int b[], int lb, int ans[]) {
+  //a[1...la], b[1...lb]
+  int mx = 0;
+  memset(f, 0, sizeof(f));
+  memset(dp, 0, sizeof(dp));
+  for (int i = 1; i <= la; i++) {
+    memcpy(f[i], f[i - 1], sizeof(f[0]));
+    for (int j = 1, k = 0; j <= lb; j++) {
+      if (a[j - 1] > b[i - 1] && dp[k] < dp[j]) { k = j; }
+      if (b[j - 1] == a[i - 1] && dp[k] + 1 > dp[j]) { dp[j] = dp[k] + 1; f[i][j] = i * (lb + 1) + k; }
+    }
+  }
+  for (int i = 1; i <= lb; i++) { if (dp[i] > dp[mx]) { mx = i; } }
+  for (int i = la * lb + la + mx, j = dp[mx]; j; i = f[i / (lb + 1)][i % (lb + 1)], j--) {
+    ans[j - 1] = b[i % (lb + 1) - 1];
+  }
+  return dp[mx];
+}
+//字符串编辑距离 (Levenshtein距离)
+//操作包括将替换一个字符, 插入一个字符, 删除一个字符
+int dp[N][N];
+int LevDist(char *a, char *b) {
+  int n = strlen(a), m = strlen(b);
+  for (int i = 0; i <= n; i++) { dp[i][0] = i; }
+  for (int i = 0; i <= m; i++) { dp[0][i] = i; }
+  for (int i = 1; i <= n; i++) {
+    for (int j = 1; j <= m; j++) {
+      dp[i][j] = min(dp[i - 1][j], dp[i][j - 1]) + 1;
+      if (a[i - 1] == b[j - 1]) { dp[i][j] = min(dp[i][j], dp[i - 1][j - 1]); }
+      else { dp[i][j] = min(dp[i][j], dp[i - 1][j - 1] + 1); }
+    }
+  }
+  return dp[n][m];
+}
+//字符串距离
+//非空格字符的距离定义为它们的ASCII码的差的绝对值, 空格字符与其它任意字符之间的距离为已知的定值k
+int dp[N][N];
+int dist(char *a, char *b, int k) {
+  int n = strlen(a), m = strlen(b);
+  for (int i = 0; i <= n; i++) { dp[i][0] = i * k; }
+  for (int i = 1; i <= m; i++) { dp[0][i] = i * k; }
+  for (int i = 1; i <= n; i++) {
+    for (int j = 1; j <= m; j++) {
+      dp[i][j] = min(dp[i - 1][j - 1] + abs(a[i - 1] - b[j - 1]), min(dp[i - 1][j], dp[i][j - 1]) + k);
+    }
+  }
+  return dp[n][m];
+}
+//TSP问题 O(V^2*2^V)
+int n, mp[N][N], dp[1 << N][N];
+int TSP() {
+  memset(dp, 0x1f, sizeof(dp));
+  dp[1][0] = 0;
+  for (int s = 0; s < 1 << n; s++) {
+    for (int v = 0; v < n; v++) {
+      if (dp[s][v] == 0x1f1f1f1f) { continue; }
+      for (int u = 0; u < n; u++) {
+        if (s & 1 << u) { continue; }
+        dp[s | 1 << u][u] = min(dp[s | 1 << u][u], dp[s][v] + mp[v][u]);
+      }
+    }
+  }
+  int ans = 0x1f1f1f1f;
+  for (int i = 0; i < n; i++) { ans = min(ans, dp[(1 << n) - 1][i] + mp[i][0]); }
+  return ans;
+}
+//mTSP问题 O(V^2*2^V)
+int n, mp[N][N], dp[1 << N][N], best[1 << N];
+bool ok[1 << N]; //该集合状态是否可行
+int mTSP() {
+  memset(dp, 0x1f, sizeof(dp));
+  memset(best, 0x1f, sizeof(best));
+  dp[1][0] = 0;
+  for (int s = 0; s < 1 << n; s++) {
+    if (!ok[s]) { continue; }
+    for (int v = 0; v < n; v++) {
+      if (!(s & (1 << v)) || dp[s][v] == 0x1f1f1f1f) { continue; }
+      best[s] = min(best[s], dp[s][v] + mp[v][0]);
+      for (int u = 0; u < n; u++) {
+        if (s & (1 << u)) { continue; }
+        dp[s | 1 << u][u] = min(dp[s | 1 << u][u], dp[s][v] + mp[v][u]);
+      }
+    }
+  }
+  for (int s = 0; s < 1 << n; s++) {
+    if (!(s & 1)) { continue; }
+    for (int i = s & (s - 1); i; i = s & (i - 1)) {
+      best[s] = min(best[s], best[i] + best[(s ^ i) | 1]);
+    }
+  }
+  return best[(1 << n) - 1];
+}
+
+==========================黑科技========================
+//加栈
+//G++
+int main() {
+  int sz = 100 << 20; //100MB
+  char *p = (char *)malloc(sz) + sz;
+  __asm__ __volatile__(
+#if __x86_64__ || __ppc64__ || _WIN64 //64-bit
+    "movq %0, %%rsp\n pushq $_exit\n"
+#else //32-bit
+    "movl %0, %%esp\n pushl $_exit\n"
+#endif
+    :: "r"(p));
+  //......
+  exit(0);
+}
+//VC++ 100MB
+#pragma comment(linker, "/STACK:102400000,102400000")
+
+//位运算
+//把右边连续的1变成0    | (100101111->100100000)    | x and (x+1)
+//把右起第一个0变成1    | (100101111->100111111)    | x or (x+1)
+//把右边连续的0变成1    | (11011000->11011111)      | x or (x-1)
+//取右边连续的1         | (100101111->1111)         | (x xor (x+1)) shr 1
+//去掉右起第一个1的左边 | (100101000->1000)         | x and (x xor (x-1))
+//枚举i的非空子集j
+for (int j = i; j; j = (j - 1) & i);
+
+//builtin函数
+int __builtin_ffs(int x);
+int __builtin_ffsll(long long);
+//Returns one plus the index of the least significant 1-bit of x, or if x is zero, returns zero.
+int __builtin_clz(unsigned int x);
+int __builtin_clzll(unsigned long long);
+//Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
+int __builtin_ctz(unsigned int x);
+int __builtin_ctzll(unsigned long long);
+//Returns the number of trailing 0-bits in x, starting at the least significant bit position. If x is 0, the result is undefined.
+int __builtin_clrsb(int x);
+int __builtin_clrsbll(long long);
+//Returns the number of leading redundant sign bits in x, i.e. the number of bits following the most significant bit that are identical to it. There are no special cases for 0 or other values.
+int __builtin_popcount(unsigned int x);
+int __builtin_popcountll(unsigned long long);
+//Returns the number of 1-bits in x.
+int __builtin_parity(unsigned int x);
+int __builtin_parityll(unsigned long long);
+//Returns the parity of x, i.e. the number of 1-bits in x modulo 2.
+uint32_t __builtin_bswap32(uint32_t x);
+uint64_t __builtin_bswap64(uint64_t x);
+//Returns x with the order of the bytes reversed; for example, 0xaabb becomes 0xbbaa. Byte here always means exactly 8 bits.
+
+//rope O(log(len))
+#include <ext/rope>
+using namespace __gnu_cxx;
+
+//pb_ds库
+//http://gaotianyu1350.gitcafe.io/2015/02/17/pbds/
+//priority_queue
+//定义
+//包含：ext/pb_ds/priority_queue.hpp
+//声明：__gnu_pbds::priority_queue<T>
+//模板参数：
+//template<typename Value_Type,
+//         typename Cmp_Fn = std::less<Value_Type>,
+//         typename Tag = pairing_heap_tag,
+//         typename Allocator = std::allocator<char>>
+//class priority_queue;
+//Value_Type：类型
+//Cmp_Fn：自定义比较器
+//Tag：堆的类型。可以是binary_heap_tag（二叉堆）binomial_heap_tag（二项堆）rc_binomial_heap_tag pairing_heap_tag（配对堆）thin_heap_tag
+//Allocator：不用管
+//使用
+//相比STL中的priority_queue，可以
+//用begin()和end()获取迭代器从而遍历
+//删除单个元素void erase(point_iterator)
+//增加或减少某一元素的值void modify(point_iterator, const_reference)
+//合并void join(priority_queue &other)，把other合并到*this，并把other清空
+//性能分析
+//五种操作：push、pop、modify、erase、join
+//pairing_heap_tag：push和joinO(1)，其余均摊O(logn)
+//binary_heap_tag：只支持push和pop，均为均摊O(logn)
+//binomial_heap_tag：push为均摊O(1)，其余为O(logn)
+//rc_binomial_heap_tag：push为O(1)，其余为O(logn)
+//thin_heap_tag：push为O(1)，不支持join，其余为O(logn)；但是如果只有increase_key，modify均摊O(1)
+//不支持不是不能用，而是用起来很慢
+//大致结论：
+//对于优化Dijkstra算法，pairing_heap_tag严格快于thin_heap_tag，速度与手写数据结构相当
+//线段树大法好
+//binary_heap_tag在绝大多数情况下优于std::priority_queue
+//pairing_heap_tag在绝大多数情况下优于binomial_heap_tag和rc_binomial_heap_tag
+//只有push，pop和join操作时，binary_heap_tag速度较快
+//在有modify操作时，可以考虑pairing_heap_tag，thin_heap_tag或手写数据结构
+
+//Tree
+//定义
+//包含：ext/pb_ds/assoc_container.hpp和ext/pb_ds/tree_policy.hpp
+//声明：__gnu_pbds::tree<Key, T>
+//模板参数：
+//template<typename Key,
+//         typename Mapped,
+//         typename Cmp_Fn = std::less<Key>,
+//         typename Tag = rb_tree_tag,
+//         template<typename Const_Node_Iterator,
+//                  typename Node_Iterator,
+//                  typename Cmp_Fn_,
+//                  typename Allocator_ >
+//         class Node_Update = null_tree_node_update,
+//         typename Allocator = std::allocator<char>>
+//class tree;
+//Tag：tree的类型，可以是rb_tree_tag，splay_tree_tag，ov_tree_tag
+//Node_Update：可以为空，也可以用pb_ds自带的tree_order_statistics_node_update，这样这个tree就会获得两个函数find_by_order和order_of_key
+//iterator find_by_order(size_type order)：找第order + 1小的元素的迭代器，如果order太大会返回end()
+//size_type order_of_key(const_key_reference r_key)：询问这个tree中有多少比r_key小的元素
+//使用
+//与map使用方法基本相同，包括begin()，end()，size()，empty()，clear()，find(const Key)，
+//lower_bound(const Key)，upper_bound(const Key)，erase(iterator)，erase(const Key)，
+//insert(const pair<Key, T>)，operator[](const Key)
+//如果想改成set，只需要将第二个参数Mapped改为null_type（在4.4.0及以下版本的编译器中应用null_mapped_type）就可以了。此时迭代器指向的类型会从pair变成Key，和set几乎没有区别
+//当然还有一些其他用法，如：
+//void join(tree &other)：把other中所有元素移动到*this上（值域不能相交，否则会抛出异常）
+//void split(const_key_reference r_key, tree &other)：清空other，然后把*this中所有大于r_key的元素移动到other
+//自定义Node_Update使用方法
+//自带的tree_order_statistics_node_update统计的是子树size
+//稍加修改就可以统计容易合并的任意信息
+//以下代码实现了区间求和
+template<class Node_CItr, class Node_Itr, class Cmp_Fn, class _Alloc>
+struct my_node_update {
+  virtual Node_CItr node_begin()const = 0;
+  virtual Node_CItr node_end()const = 0;
+  typedef int metadata_type; //节点上记录的额外信息的类型
+  inline void operator()(Node_Itr it, Node_CItr end_it) {
+    Node_Itr l = it.get_l_child(), r = it.get_r_child();
+    int left = 0, right = 0;
+    if (l != end_it) { left = l.get_metadata(); }
+    if (r != end_it) { right = r.get_metadata(); }
+    const_cast<metadata_type &>(it.get_metadata()) = left + right + (*it)->second;
+  }
+  inline int prefix_sum(int x) {
+    int ans = 0;
+    Node_CItr it = node_begin();
+    while (it != node_end()) {
+      Node_CItr l = it.get_l_child(), r = it.get_r_child();
+      if (Cmp_Fn()(x, (*it)->first)) { it = l; }
+      else {
+        ans += (*it)->second;
+        if (l != node_end()) { ans += l.get_metadata(); }
+        it = r;
+      }
+    }
+    return ans;
+  }
+  inline int interval_sum(int l, int r) {
+    return prefix_sum(r) - prefix_sum(l - 1);
+  }
+};
+int main() {
+  tree<int, int, std::less<int>, rb_tree_tag, my_node_update> T;
+  T[2] = 100; T[3] = 1000; T[4] = 10000;
+  printf("%d\n%d\n", T.interval_sum(3, 4), T.prefix_sum(3));
+}
+//注意：
+//对Node_Itr可以做的事情：用get_l_child和get_r_child获取左右儿子，用两个星号（一个星号只是获取了iterator）获取节点信息，用get_metadata获取节点额外信息
+//operator()的功能是将节点it的信息更新，传入的end_it表示空节点
+//性能分析
+//和手写数据结构差不多，rb_tree_tag要更快
+
+//Hash
+//定义
+//包含：ext/pb_ds/assoc_container.hpp和ext/pb_ds/hash_policy.hpp
+//声明：
+//__gnu_pbds::cc_hash_table<Key, Mapped>
+//__gnu_pbds::gp_hash_table<Key, Mapped>
+//使用
+//支持find和operator[]
+
+//Trie
+//定义
+//包含：ext/pb_ds/assoc_container.hpp和ext/pb_ds/trie_policy.hpp
+//声明：__gnu_pbds::trie<Key, Mapped>
+//模板参数：
+//template<typename Key,
+//         typename Mapped,
+//         typename Cmp_Fn = std::less<Key>,
+//         typename Tag = pat_trie_tag,
+//         template<typename Const_Node_Iterator,
+//                  typename Node_Iterator,
+//                  typename E_Access_Traits_,
+//                  typename Allocator_>
+//         class Node_Update = null_trie_node_update,
+//         typename Allocator = std::allocator<char>>
+//class trie;
+//Key is the key type.
+//Mapped is the mapped-policy, and is explained in Tutorial::Associative Containers::Associative Containers Others than Maps.
+//E_Access_Traits is described in Element-Access Traits.
+//Tag specifies which underlying data structure to use, and is described shortly.
+//Node_Update is a policy for updating node invariants. This is described in Node Invariants.
+//Allocator is an allocator type.
+//功能：
+//pair<const_iterator, const_iterator> prefix_range(key_const_reference)
+//Finds the const iterator range corresponding to all values whose prefixes match r_key
+//如果你想用这个函数，trie的模板参数得这么写trie<string, [your type here], string_trie_e_access_traits<>, pat_trie_tag, trie_prefix_search_node_update>
+
+//List（用作multimap/multiset）
+//定义
+//包含：ext/pb_ds/assoc_container.hpp和ext/pb_ds/list_update_policy.hpp
+//声明：__gnu_pbds::list_update<Key, Mapped>
+//模板参数：
+//template<typename Key,
+//         typename Mapped,
+//         typename Eq_Fn = std::equal_to<Key>,
+//         typename Update_Policy = move_to_front_lu_policy<>,
+//         typename Allocator = std::allocator<char>>
+//class list_update;
+
+//总结
+//priority_queue，与STL相比支持了modify，erase和join
+//tree，相当于STL中的set/map，还支持split和join，运用tree_order_statistics_node_update还支持查询rank和k小值；更可以自定义Node_Update来维护更多信息
+//（目前比赛环境中）STL没有的两种hash_table
+//无脑用pb_ds代替std::set/map/priority_queue不会使程序变得更慢
+
+
+===================矩阵================
+//矩阵类
+template<typename T> struct mat {
+  vector<T> a; int h, w;
+  mat(): a(), h(), w() {}
+  mat(const mat &v): a(v.a), h(v.h), w(v.w) {}
+  mat(const int &_h, const int &_w): a(_h * _w), h(_h), w(_w) { }
+  void init() { a.clear(); a.resize(h * w); }
+  static mat e(const int &_h, const int &_w) {
+    mat res(_h, _w);
+    for (int i = 0, n = min(_h, _w); i < n; i++) { res[i][i] = 1; }
+    return res;
+  }
+  static mat e(const mat &b) { return e(b.h, b.w); }
+  T *operator[](const int &v) { return &a[v * w]; }
+  const T *operator[](const int &v)const { return &a[v * w]; }
+  mat &operator+=(const mat &b) {
+    for (int i = 0, n = h * w; i < n; i++) { a[i] += b.a[i]; }
+    return *this;
+  }
+  mat &operator-=(const mat &b) { return *this += -b; }
+  mat &operator*=(const mat &b) {
+    mat c(h, b.w);
+    for (int i = 0; i < h; i++) {
+      for (int k = 0; k < w; k++) {
+        const T &tmp = (*this)[i][k];
+        if (isZero(tmp)) { continue; }
+        for (int j = 0; j < b.w; j++) { c[i][j] = (c[i][j] + tmp * b[k][j])/*%M*/; }
+      }
+    }
+    swap(a, c.a); h = c.h; w = c.w; return *this;
+  }
+  mat operator-()const {
+    mat ret(*this);
+    for (int i = 0, n = h * w; i < n; i++) { ret.a[i] = -ret.a[i]; }
+    return ret;
+  }
+  mat operator+(const mat &b)const { return mat(*this) += b; }
+  mat operator-(const mat &b)const { return mat(*this) -= b; }
+  mat operator*(const mat &b)const { return mat(*this) *= b; }
+  mat operator^(const ll &v)const {
+    mat ret(e(*this)), t(*this);
+    for (ll b = v; b; b >>= 1) { if (b & 1) { ret *= t; } t *= t; }
+    return ret;
+  }
+  bool operator==(const mat &b)const {
+    if (h != b.h || w != b.w) { return false; }
+    for (int i = 0, n = h * w; i < n; i++) { if (!isZero(a[i] - b.a[i])) { return false; } }
+    return true;
+  }
+  bool operator!=(const mat &b)const { return !(*this == b); }
+  T abs(const T &v)const { return v < 0 ? -v : v; }
+  bool isZero(const T &v)const { return abs(v) < 1e-9; }
+  void input() { for (int i = 0, n = h * w; i < n; i++) { scanf("%I64d", &a[i]); } }
+  void print()const {
+    for (int i = 0, n = h * w; i < n; i++) { printf("%I64d%c", a[i], i % w == w - 1 ? '\n' : ' '); }
+  }
+  mat trans()const {
+    mat ret(w, h);
+    for (int i = 0; i < w; i++) { for (int j = 0; j < h; j++) { ret[i][j] = a[j][i]; } }
+    return ret;
+  }
+  //求逆矩阵 限double 可逆则返回true 结果在参数v中
+  bool inv(mat &v)const {
+    if (h != w) { return false; }
+    int is[N], js[N]; v = *this;
+    for (int k = 0; k < h; k++) {
+      double t = 0;
+      for (int i = k; i < h; i++) {
+        for (int j = k; j < h; j++) {
+          if (abs(v[i][j]) > t) { t = abs(v[is[k] = i][js[k] = j]); }
+        }
+      }
+      if (isZero(t)) { return false; }
+      if (is[k] != k) { for (int j = 0; j < h; j++) { swap(v[k][j], v[is[k]][j]); } }
+      if (js[k] != k) { for (int i = 0; i < h; i++) { swap(v[i][k], v[i][js[k]]); } }
+      v[k][k] = 1.0 / v[k][k];
+      for (int j = 0; j < h; j++) { if (j != k) { v[k][j] *= v[k][k]; } }
+      for (int i = 0; i < h; i++) {
+        if (i != k) { for (int j = 0; j < h; j++) { if (j != k) { v[i][j] -= v[i][k] * v[k][j]; } } }
+      }
+      for (int i = 0; i < h; i++) { if (i != k) { v[i][k] *= -v[k][k]; } }
+    }
+    for (int k = h - 1; k >= 0; k--) {
+      for (int j = 0; j < h; j++) { if (js[k] != k) { swap(v[k][j], v[js[k]][j]); } }
+      for (int i = 0; i < h; i++) { if (is[k] != k) { swap(v[i][k], v[i][is[k]]); } }
+    }
+    return true;
+  }
+  //求行列式模M 需逆元
+  ll detmod()const {
+    if (h != w) { return 0; }
+    ll res = 1; mat c(*this);
+    for (int i = 0; i < h; i++) {
+      for (int j = 0; j < h; j++) { c[i][j] = (c[i][j] % M + M) % M; }
+    }
+    for (int i = 0; i < h; i++) {
+      for (int j = i; j < h; j++) {
+        if (c[j][i] != 0) {
+          for (int k = i; k < h; k++) { swap(c[i][k], c[j][k]); }
+          if (i != j) { res = (-res + M) % M; }
+          break;
+        }
+      }
+      if (c[i][i] == 0) { res = -1; break; }
+      for (int j = i + 1; j < h; j++) {
+        //int mul = (c[j][i] * Inv[c[i][i]]) % M; //打表逆元
+        ll mul = (c[j][i] * inv(c[i][i], M)) % M;
+        for (int k = i; k < h; k++) { c[j][k] = (c[j][k] - (c[i][k] * mul) % M + M) % M; }
+      }
+      res = (res * c[i][i]) % M;
+    }
+    return res;
+  }
+  //求行列式 限double
+  double det()const {
+    if (h != w) { return 0; }
+    int sign = 0; double ret = 1.0; mat c(*this);
+    for (int i = 0, j, k; i < h; i++) {
+      if (isZero(c[i][i])) {
+        for (j = i + 1; j < h && isZero(c[j][i]); j++);
+        if (j == h) { return 0; }
+        for (k = i; k < h; k++) { swap(c[i][k], c[j][k]); }
+        sign++;
+      }
+      ret *= c[i][i];
+      for (k = i + 1; k < h; k++) { c[i][k] /= c[i][i]; }
+      for (j = i + 1; j < h; j++) { for (k = i + 1; k < h; k++) { c[j][k] -= c[j][i] * c[i][k]; } }
+    }
+    return sign & 1 ? -ret : ret;
+  }
+};
+
+
+

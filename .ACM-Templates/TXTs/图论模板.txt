@@ -1,0 +1,2263 @@
+==========图论模板 LCA=========
+//LCA (Least Common Ancestors, 最近公共祖先)
+//在线dfs + ST O(nlogn + q)
+int dfso[N << 1], cnt; //欧拉序列, 即dfs序, 长度为2n-1, 下标从1开始
+int pos[N]; //pos[i]表示点i在欧拉序列中第一次出现的位置
+int dep[N << 1]; //欧拉序列对应的深度
+int p[N << 1] = { -1}, dp[N << 1][20];
+void initRMQ(int n) {
+  for (int i = 1; i <= n; i++) { p[i] = p[i - 1] + !(i & (i - 1)); dp[i][0] = i; }
+  for (int j = 1; j <= p[n]; j++) {
+    for (int i = 1; i + (1 << j) - 1 <= n; i++) {
+      dp[i][j] = dep[dp[i][j - 1]] < dep[dp[i + (1 << (j - 1))][j - 1]] ? dp[i][j - 1] : dp[i + (1 << (j - 1))][j - 1];
+    }
+  }
+}
+inline int queryRMQ(int l, int r) {
+  if (l > r) { swap(l, r); }
+  int k = p[r - l + 1];
+  return dep[dp[l][k]] <= dep[dp[r - (1 << k) + 1][k]] ? dp[l][k] : dp[r - (1 << k) + 1][k];
+}
+void dfs(int u, int p, int d) {
+  dfso[++cnt] = u; dep[cnt] = d; pos[u] = cnt;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (v != p) { dfs(v, u, d + 1); dfso[++cnt] = u; dep[cnt] = d; }
+  }
+}
+void initLCA(int rt, int n) {
+  cnt = 0; dfs(rt, rt, 0); initRMQ(2 * n - 1);
+}
+inline int queryLCA(int u, int v) { //查询u和v的LCA编号
+  return dfso[queryRMQ(pos[u], pos[v])];
+}
+//倍增法 O(nlogn + qlogn)
+const int DEP = 20;
+int fa[N][DEP]; //fa[i][j]表示结点i的第2^j个祖先
+int dep[N]; //深度
+void bfs(int rt) {
+  queue<int> que; que.push(rt);
+  dep[rt] = 0; fa[rt][0] = rt;
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    for (int i = 1; i < DEP; i++) { fa[u][i] = fa[fa[u][i - 1]][i - 1]; }
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i];
+      if (v != fa[u][0]) { dep[v] = dep[u] + 1; fa[v][0] = u; que.push(v); }
+    }
+  }
+}
+int queryLCA(int u, int v) {
+  if (dep[u] > dep[v]) { swap(u, v); }
+  for (int d = dep[v] - dep[u], i = 0; d; d >>= 1, i++) {
+    if (d & 1) { v = fa[v][i]; }
+  }
+  if (u == v) { return u; }
+  for (int i = DEP - 1; i >= 0; i--) {
+    if (fa[u][i] != fa[v][i]) { u = fa[u][i]; v = fa[v][i]; }
+  }
+  return fa[u][0];
+}
+//离线Tarjan O(n + q)
+int n, fa[N], ancestor[N], ans[N];
+bool vis[N];
+int qhead[N], qto[M], qnxt[M], qtot;
+void init() {
+  qtot = 0; memset(qhead, -1, sizeof(qhead));
+  memset(ancestor, 0, sizeof(ancestor)); memset(vis, 0, sizeof(vis));
+  for (int i = 0; i <= n; i++) { fa[i] = i; }
+}
+void qaddedge(int x, int y) {
+  qto[qtot] = y; qnxt[qtot] = qhead[x]; qhead[x] = qtot++;
+  qto[qtot] = x; qnxt[qtot] = qhead[y]; qhead[y] = qtot++;
+}
+int findfa(int n) { return n == fa[n] ? n : fa[n] = findfa(fa[n]); }
+inline void unite(int x, int y) {
+  x = findfa(x); y = findfa(y);
+  if (x != y) { fa[y] = x; }
+}
+void Tarjan_LCA(int u) {
+  ancestor[u] = u; vis[u] = true;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (!vis[v]) { Tarjan_LCA(v); unite(u, v); ancestor[findfa(u)] = u; }
+  }
+  for (int i = qhead[u]; ~i; i = qnxt[i]) {
+    int v = qto[i];
+    if (vis[v]) { ans[i >> 1] = ancestor[findfa(v)]; }
+  }
+}
+
+==================图论-连通性==================
+//图的割点、桥与双连通分量
+//[点连通度与边连通度]
+//在一个无向连通图中, 如果有一个顶点集合, 删除这个顶点集合,
+//以及这个集合中所有顶点相关联的边以后, 原图变成多个连通块, 就称这个点集为割点集合
+//一个图的点连通度的定义为, 最小割点集合中的顶点数
+//类似的, 如果有一个边集合, 删除这个边集合以后, 原图变成多个连通块, 就称这个点集为割边集合
+//一个图的边连通度的定义为, 最小割边集合中的边数
+//[双连通图、割点与桥]
+//如果一个无向连通图的点连通度大于1, 则称该图是点双连通的(point biconnected), 简称双连通或重连通
+//一个图有割点, 当且仅当这个图的点连通度为1, 则割点集合的唯一元素被称为割点(cut point), 又叫关节点(articulation point)
+//如果一个无向连通图的边连通度大于1, 则称该图是边双连通的(edge biconnected), 简称双连通或重连通
+//一个图有桥, 当且仅当这个图的边连通度为1, 则割边集合的唯一元素被称为桥(bridge), 又叫关节边(articulation edge)
+//可以看出, 点双连通与边双连通都可以简称为双连通, 它们之间是有着某种联系的, 下文中提到的双连通, 均既可指点双连通, 又可指边双连通
+//[双连通分量]
+//在图G的所有子图G'中, 如果G'是双连通的, 则称G'为双连通子图
+//如果一个双连通子图G'它不是任何一个双连通子图的真子集, 则G'为极大双连通子图
+//双连通分量(biconnected component), 或重连通分量, 就是图的极大双连通子图。特殊的, 点双连通分量又叫做块
+//[求割点与桥]
+//对图深度优先搜索, 定义DFS(u)为u在搜索树(以下简称为树)中被遍历到的次序号
+//定义Low(u)为u或u的子树中能通过非父子边追溯到的最早的节点, 即DFS序号最小的节点
+//根据定义, 则有: Low(u) = Min {DFS(u) DFS(v) (u,v)为后向边(返祖边) 等价于DFS(v) < DFS(u)且v不为u的父亲节点Low(v) (u,v)为树枝边(父子边)}
+//一个顶点u是割点, 当且仅当满足(1)或(2)
+//(1)u为树根, 且u有多于一个子树
+//(2)u不为树根, 且满足存在(u,v)为树枝边(或称父子边, 即u为v在搜索树中的父亲), 使得DFS(u)<=Low(v)
+//一条无向边(u,v)是桥, 当且仅当(u,v)为树枝边, 且满足DFS(u)<Low(v)
+//[求双连通分量]
+//对于点双连通分量, 实际上在求割点的过程中就能顺便把每个点双连通分量求出
+//建立一个栈, 存储当前双连通分量, 在搜索图时, 每找到一条树枝边或后向边(非横叉边), 就把这条边加入栈中
+//如果遇到某时满足DFS(u)<=Low(v), 说明u是一个割点, 同时把边从栈顶一个个取出,
+//直到遇到了边(u,v), 取出的这些边与其关联的点, 组成一个点双连通分量
+//割点可以属于多个点双连通分量, 其余点和每条边只属于且属于一个点双连通分量
+//对于边双连通分量, 只需在求出所有的桥以后, 把桥边删除, 原图变成了多个连通块, 则每个连通块就是一个边双连通分量
+//桥不属于任何一个边双连通分量, 其余的边和每个顶点都属于且只属于一个边双连通分量
+//[构造双连通图]
+//方法为首先求出所有的桥, 然后删除这些桥边, 剩下的每个连通块都是一个双连通子图
+//把每个双连通子图收缩为一个顶点, 再把桥边加回来, 最后的这个图一定是一棵树, 边连通度为1
+//统计出树中度为1的节点的个数, 即为叶节点的个数, 记为leaf
+//则至少在树上添加(leaf + 1) / 2条边, 就能使树达到边二连通, 所以至少添加的边数就是(leaf + 1) / 2
+//具体方法为, 首先把两个最近公共祖先最远的两个叶节点之间连接一条边, 这样可以把这两个点到祖先的路径上所有点收缩到一起,
+//因为一个形成的环一定是双连通的。然后再找两个最近公共祖先最远的两个叶节点, 这样一对一对找完, 恰好是(leaf + 1) / 2次, 把所有点收缩到了一起
+
+//有向图的强连通分量
+//Kosaraju算法 O(V + E)
+vector<int> e[N], re[N], pos;
+bool vis[N];
+int belong[N], num[N], scc, cnt; //所属分量, 分量点数, 分量个数
+void dfs(int u) {
+  vis[u] = true;
+  for (int i = 0; i < (int)e[u].size(); i++) {
+    if (!vis[e[u][i]]) { dfs(e[u][i]); }
+  }
+  pos.push_back(u);
+}
+void rdfs(int u, int k) {
+  vis[u] = true; belong[u] = k; cnt++;
+  for (int i = 0; i < (int)re[u].size(); i++) {
+    if (!vis[re[u][i]]) { rdfs(re[u][i], k); }
+  }
+}
+void SCC(int n) {
+  memset(vis, 0, sizeof(vis)); pos.clear();
+  for (int i = 0; i < n; i++) { if (!vis[i]) { dfs(i); } }
+  memset(vis, 0, sizeof(vis)); memset(num, 0, sizeof(num)); scc = 0;
+  for (int i = (int)pos.size() - 1; i >= 0; i--) {
+    if (!vis[pos[i]]) { cnt = 0; rdfs(pos[i], ++scc); num[scc] = cnt; }
+  }
+}
+//Tarjan算法 O(V + E)
+vector<int> e[N];
+int low[N], dfn[N], index, belong[N], num[N], scc; //所属分量, 分量点数, 分量个数
+stack<int> stk;
+bool instack[N];
+void Tarjan(int u) {
+  int v; low[u] = dfn[u] = ++index; stk.push(u); instack[u] = true;
+  for (int i = 0; i < (int)e[u].size(); i++) {
+    int v = e[u][i];
+    if (!dfn[v]) { Tarjan(v); low[u] = min(low[u], low[v]); }
+    else if (instack[v] && low[u] > dfn[v]) { low[u] = dfn[v]; }
+  }
+  if (low[u] == dfn[u]) {
+    scc++;
+    do {
+      v = stk.top(); stk.pop();
+      instack[v] = false; belong[v] = scc; num[scc]++;
+    } while (v != u);
+  }
+}
+void SCC(int n) {
+  memset(dfn, 0, sizeof(dfn)); memset(num, 0, sizeof(num));
+  memset(instack, 0, sizeof(instack)); index = scc = 0;
+  while (!stk.empty()) { stk.pop(); }
+  for (int i = 0; i < n; i++) { if (!dfn[i]) { Tarjan(i); } }
+}
+//无向图的割点和桥
+//Tarjan算法 O(V + E)
+int low[N], dfn[N], index, addblock[N], bridge;
+bool instack[N], cut[N], ecut[M];
+stack<int> stk;
+void Tarjan(int u, int p) {
+  int son = 0; low[u] = dfn[u] = ++index;
+  stk.push(u); instack[u] = true;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (v == p) { continue; }
+    if (!dfn[v]) {
+      Tarjan(v, u); son++;
+      low[u] = min(low[u], low[v]);
+      if (u != p && low[v] >= dfn[u]) { //割点
+        cut[u] = true; addblock[u]++;
+      }
+      if (low[v] > dfn[u]) { //割边
+        bridge++; ecut[i] = ecut[i ^ 1] = true;
+      }
+    } else if (low[u] > dfn[v]) { low[u] = dfn[v]; }
+  }
+  if (u == p && son > 1) { cut[u] = true; }
+  if (u == p) { addblock[u] = son - 1; }
+  instack[u] = false; stk.pop();
+}
+void CUT(int n) {
+  memset(dfn, 0, sizeof(dfn)); memset(addblock, 0, sizeof(addblock));
+  memset(instack, 0, sizeof(instack)); memset(cut, 0, sizeof(cut)); memset(ecut, 0, sizeof(ecut));
+  while (!stk.empty()) { stk.pop(); } index = bridge = 0;
+  for (int i = 0; i < n; i++) { if (!dfn[i]) { Tarjan(i, i); } }
+}
+//无向图的边双连通分量
+//求出所有的桥以后, 把桥边删除, 原图变成了多个连通块, 则每个连通块就是一个边双连通分量
+//桥不属于任何一个边双连通分量, 其余的边和每个顶点都属于且只属于一个边双连通分量
+//Tarjan算法 O(V + E)
+int low[N], dfn[N], index, belong[N], bridge, block;
+bool instack[N], ecut[M];
+stack<int> stk;
+void Tarjan(int u, int p) {
+  low[u] = dfn[u] = ++index; stk.push(u); instack[u] = true;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (v == p) { continue; }
+    if (!dfn[v]) {
+      Tarjan(v, u);
+      low[u] = min(low[u], low[v]);
+      if (low[v] > dfn[u]) { //割边
+        bridge++; ecut[i] = ecut[i ^ 1] = true;
+      }
+    } else if (low[u] > dfn[v]) { low[u] = dfn[v]; }
+  }
+  if (low[u] == dfn[u]) {
+    int v; block++;
+    do {
+      v = stk.top(); stk.pop(); instack[v] = false; belong[v] = block;
+    } while (u != v);
+  }
+}
+void EBCC(int n) {
+  memset(dfn, 0, sizeof(dfn)); memset(instack, 0, sizeof(instack)); memset(cut, 0, sizeof(cut));
+  while (!stk.empty()) { stk.pop(); } index = bridge = block = 0;
+  for (int i = 0; i < n; i++) { if (!dfn[i]) { Tarjan(i, -1); } }
+}
+//无向图的点双连通分量
+//对于点双连通分量, 实际上在求割点的过程中就能顺便把每个点双连通分量求出
+//建立一个栈, 存储当前双连通分量, 在搜索图时, 每找到一条树枝边或后向边(非横叉边), 就把这条边加入栈中
+//如果遇到某时满足DFS(u)<=Low(v), 说明u是一个割点, 同时把边从栈顶一个个取出,
+//直到遇到了边(u,v), 取出的这些边与其关联的点, 组成一个点双连通分量
+//割点可以属于多个点双连通分量, 其余点和每条边只属于且属于一个点双连通分量
+//Tarjan算法 O(V + E)
+int low[N], dfn[N], index, belong[N], block; //所属分量, 分量点数, 分量个数
+stack<int> stk;
+bool instack[N];
+void Tarjan(int u, int p) {
+  low[u] = dfn[u] = ++index;
+  stk.push(u); instack[u] = true;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (v == p) { continue; }
+    if (!dfn[v]) {
+      Tarjan(v, u);
+      low[u] = min(low[u], low[v]);
+      if (low[v] >= dfn[u]) { //u为割点
+        int vv; block++;
+        do {
+          vv = stk.top(); stk.pop(); instack[vv] = false;
+          belong[vv] = block;
+        } while (vv != v);
+      }
+    } else if (instack[v] && low[u] > dfn[v]) { low[u] = dfn[v]; }
+  }
+}
+void BCC(int n) {
+  memset(dfn, 0, sizeof(dfn)); memset(instack, 0, sizeof(instack));
+  while (!stk.empty()) { stk.pop(); } index = block = 0;
+  for (int i = 0; i < n; i++) { if (!dfn[i]) { Tarjan(i, -1); } }
+}
+//构造双连通图
+//方法为首先求出所有的桥, 然后删除这些桥边, 剩下的每个连通块都是一个双连通子图
+//把每个双连通子图收缩为一个顶点, 再把桥边加回来, 最后的这个图一定是一棵树, 边连通度为1
+//统计出树中度为1的节点的个数, 即为叶节点的个数, 记为leaf
+//则至少在树上添加(leaf + 1) / 2条边, 就能使树达到边二连通, 所以至少添加的边数就是(leaf + 1) / 2
+//具体方法为, 首先把两个最近公共祖先最远的两个叶节点之间连接一条边, 这样可以把这两个点到祖先的路径上所有点收缩到一起,
+//因为一个形成的环一定是双连通的。然后再找两个最近公共祖先最远的两个叶节点, 这样一对一对找完, 恰好是(leaf + 1) / 2次, 把所有点收缩到了一起
+
+
+=============================图论-匹配============================
+//图论点、边集和二分图的相关概念和性质
+//点覆盖: 点覆盖集即一个点集, 使得所有边至少有一个端点在集合里
+//边覆盖: 边覆盖集即一个边集, 使得所有点都与集合里的边邻接
+//独立集: 独立集即一个点集, 集合中任两个结点不相邻, 则称V为独立集
+//团: 团即一个点集, 集合中任两个结点相邻
+//边独立集: 边独立集即一个边集, 满足边集中的任两边不邻接
+//支配集: 支配集即一个点集, 使得所有其他点至少有一个相邻点在集合里
+//边支配集: 边支配集即一个边集, 使得所有边至少有一条邻接边在集合里
+//最小路径覆盖: 用尽量少的不相交简单路径覆盖有向无环图G的所有顶点, 即每个顶点严格属于一条路径, 路径的长度可能为0(单个点)
+//匹配: 匹配是一个边集, 满足边集中的边两两不邻接
+//在匹配中的点称为匹配点或饱和点；反之, 称为未匹配点或未饱和点
+//交错轨(alternating path): 图的一条简单路径, 满足任意相邻的两条边, 一条在匹配内, 一条不在匹配内
+//增广轨(augmenting path): 是一个始点与终点都为未匹配点的交错轨
+//最大匹配(maximum matching): 具有最多边的匹配
+//匹配数(matching number): 最大匹配的大小
+//完美匹配(perfect matching): 匹配了所有点的匹配
+//完备匹配(complete matching): 匹配了二分图较小集合（二分图X, Y中小的那个）的所有点的匹配
+//增广轨定理: 一个匹配是最大匹配当且仅当没有增广轨
+//所有匹配算法都是基于增广轨定理: 一个匹配是最大匹配当且仅当没有增广轨
+//最大匹配数 = 最小覆盖数 = 左边匹配点 + 右边未匹配点
+//最小边覆盖 = 图中点的个数 - 最大匹配数 = 独立数
+
+//二分图最大匹配
+//Hungary + dfs
+//邻接矩阵 O(V^2)
+int uN, vN, match[N]; //左右点的数目
+bool g[N][N], check[N];
+bool dfs(int u) {
+  for (int v = 0; v < vN; v++) {
+    if (g[u][v] && !check[v]) {
+      check[v] = true;
+      if (match[v] == -1 || dfs(match[v])) {
+        match[v] = u; match[u] = v; return true;
+      }
+    }
+  }
+  return false;
+}
+//邻接表 O(V*E)
+int head[N], to[M], nxt[M], tot, uN, match[N];
+bool check[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+bool dfs(int u) {
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (!check[v]) {
+      check[v] = true;
+      if (match[v] == -1 || dfs(match[v])) {
+        match[v] = u; match[u] = v; return true;
+      }
+    }
+  }
+  return false;
+}
+int Hungary() {
+  memset(match, -1, sizeof(match));
+  int res = 0;
+  for (int u = 0; u < uN; u++) {
+    if (match[u] == -1) {
+      memset(check, 0, sizeof(check));
+      if (dfs(u)) { res++; }
+    }
+  }
+  return res;
+}
+//Hungary + bfs + 邻接矩阵 O(V*E)
+bool g[N][N];
+int uN, vN, match[N], check[N], pre[N];
+int Hungary() {
+  memset(match, -1, sizeof(match));
+  memset(check, -1, sizeof(check));
+  queue<int> que;
+  int res = 0;
+  for (int i = 0; i < uN; i++) {
+    if (match[i] == -1) {
+      while (!que.empty()) { que.pop(); }
+      que.push(i); pre[i] = -1;
+      bool flag = false;
+      while (!que.empty() && !flag) {
+        int u = que.front(); que.pop();
+        for (int v = 0; v < vN && !flag; v++) {
+          if (g[u][v] && check[v] != i) {
+            check[v] = i; que.push(match[v]);
+            if (~match[v]) { pre[match[v]] = u; }
+            else {
+              flag = true;
+              for (int a = u, b = v; ~a;) {
+                int t = match[a]; match[a] = b; match[b] = a; a = pre[a]; b = t;
+              }
+            }
+          }
+        }
+      }
+      if (~match[i]) { res++; }
+    }
+  }
+  return res;
+}
+//Hungary + bfs + 邻接表 O(V*E)
+int head[N], to[M], nxt[M], tot, uN, match[N], check[N], pre[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+int Hungary() {
+  memset(match, -1, sizeof(match));
+  memset(check, -1, sizeof(check));
+  queue<int> que;
+  int res = 0;
+  for (int i = 0; i < uN; i++) {
+    if (match[i] == -1) {
+      while (!que.empty()) { que.pop(); }
+      que.push(i); pre[i] = -1;
+      bool flag = false;
+      while (!que.empty() && !flag) {
+        int u = que.front(); que.pop();
+        for (int i = head[u]; ~i && !flag; i = nxt[i]) {
+          int v = to[i];
+          if (check[v] != i) {
+            check[v] = i; que.push(match[v]);
+            if (~match[v]) { pre[match[v]] = u; }
+            else {
+              flag = true;
+              for (int a = u, b = v; ~a;) {
+                int t = match[a]; match[a] = b; match[b] = a; a = pre[a]; b = t;
+              }
+            }
+          }
+        }
+      }
+      if (~match[i]) { res++; }
+    }
+  }
+  return res;
+}
+//Hopcroft-Karp + vector + O(sqrt(V)*E)
+const int INF = 0x3f3f3f3f;
+vector<int> g[N];
+int uN, matchx[N], matchy[N], dx[N], dy[N], dis;
+bool check[N];
+bool SearchP() {
+  memset(dx, -1, sizeof(dx));
+  memset(dy, -1, sizeof(dy));
+  queue<int> que; dis = INF;
+  for (int i = 0; i < uN; i++) { if (matchx[i] == -1) { dx[i] = 0; que.push(i); } }
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    if (dx[u] > dis) { break; }
+    for (size_t i = 0; i < g[u].size(); i++) {
+      int v = g[u][i];
+      if (dy[v] == -1) {
+        dy[v] = dx[u] + 1;
+        if (matchy[v] == -1) { dis = dy[v]; }
+        else { dx[matchy[v]] = dy[v] + 1; que.push(matchy[v]); }
+      }
+    }
+  }
+  return dis != INF;
+}
+bool dfs(int u) {
+  for (size_t i = 0; i < g[u].size(); i++) {
+    int v = g[u][i];
+    if (!check[v] && dy[v] == dx[u] + 1) {
+      check[v] = true;
+      if (~matchy[v] && dy[v] == dis) { continue; }
+      if (matchy[v] == -1 || dfs(matchy[v])) {
+        matchy[v] = u; matchx[u] = v; return true;
+      }
+    }
+  }
+  return false;
+}
+int HK() {
+  memset(matchx, -1, sizeof(matchx));
+  memset(matchy, -1, sizeof(matchy));
+  int res = 0;
+  while (SearchP()) {
+    memset(check, 0, sizeof(check));
+    for (int i = 0; i < uN; i++) {
+      if (matchx[i] == -1 && dfs(i)) { res++; }
+    }
+  }
+  return res;
+}
+//二分图最佳匹配
+//Kuhn-Munkers + 邻接矩阵 O(uN^2*vN)
+//若求最小权匹配,可将权值取相反数,结果取相反数 点的编号从0开始
+const int INF = 0x3f3f3f3f;
+int uN, vN, g[N][N];
+int matchy[N], lx[N], ly[N]; //y中各点匹配状态, 可行顶标
+int slack[N]; //松弛数组
+bool visx[N], visy[N];
+bool dfs(int u) {
+  visx[u] = true;
+  for (int v = 0; v < vN; v++) {
+    if (visy[v]) { continue; }
+    int tmp = lx[u] + ly[v] - g[u][v];
+    if (tmp == 0) {
+      visy[v] = true;
+      if (matchy[v] == -1 || dfs(matchy[v])) { matchy[v] = u; return true; }
+    } else if (slack[v] > tmp) { slack[v] = tmp; }
+  }
+  return false;
+}
+int KM() {
+  memset(matchy, -1, sizeof(matchy));
+  memset(ly, 0, sizeof(ly));
+  for (int i = 0; i < uN; i++) { lx[i] = *max_element(g[i], g[i] + vN); }
+  for (int u = 0; u < uN; u++) {
+    memset(slack, 0x3f, sizeof(slack));
+    for (;;) {
+      memset(visx, 0, sizeof(visx));
+      memset(visy, 0, sizeof(visy));
+      if (dfs(u)) { break; }
+      int d = INF;
+      for (int i = 0; i < vN; i++) { if (!visy[i] && d > slack[i]) { d = slack[i]; } }
+      for (int i = 0; i < uN; i++) { if (visx[i]) { lx[i] -= d; } }
+      for (int i = 0; i < vN; i++) { if (visy[i]) { ly[i] += d; } else { slack[i] -= d; } }
+    }
+  }
+  int res = 0;
+  for (int i = 0; i < vN; i++) { if (matchy[i] != -1) { res += g[matchy[i]][i]; } }
+  return res;
+}
+//二分图多重匹配
+int uN, vN, g[N][N], match[N][N]; //match[i][0]为个数
+int num[N]; //右边最大的匹配数
+bool check[N];
+bool dfs(int u) {
+  for (int v = 0; v < vN; v++) {
+    if (g[u][v] && !check[v]) {
+      check[v] = true;
+      if (match[v][0] < num[v]) { match[v][++match[v][0]] = u; return true; }
+      for (int i = 1; i <= num[0]; i++) {
+        if (dfs(match[v][i])) { match[v][i] = u; return true; }
+      }
+    }
+  }
+  return false;
+}
+int Hungary() {
+  int res = 0;
+  for (int i = 0; i < vN; i++) { match[i][0] = 0; }
+  for (int u = 0; u < uN; u++) {
+    memset(check, false, sizeof(check));
+    res += dfs(u);
+  }
+  return res;
+}
+//一般图最大匹配
+//邻接矩阵 O(V^3)
+int n, match[N];
+bool g[N][N], check[N];
+bool aug(int now) {
+  bool ret = false; check[now] = true;
+  for (int i = 0; i < n; i++) {
+    if (!check[i] && g[now][i]) {
+      if (match[i] == -1) { match[now] = i; match[i] = now; ret = true; }
+      else {
+        check[i] = true;
+        if (aug(match[i])) { match[now] = i, match[i] = now, ret = true; }
+        check[i] = false;
+      }
+      if (ret) { break; }
+    }
+  }
+  check[now] = false; return ret;
+}
+//邻接表 O(V*E)
+int head[N], to[M], nxt[M], tot, match[N];
+bool check[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+bool aug(int now) {
+  bool ret = false; check[now] = true;
+  for (int i = head[now]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (!check[v]) {
+      if (match[v] == -1) { match[now] = v; match[v] = now; ret = true; }
+      else {
+        check[v] = true;
+        if (aug(match[v])) { match[now] = v; match[v] = now; ret = true; }
+        check[v] = false;
+      }
+      if (ret) { break; }
+    }
+  }
+  check[now] = false; return ret;
+}
+int graphMatch() {
+  memset(match, -1, sizeof(match));
+  memset(check, 0, sizeof(check));
+  for (int i = 0, j = n; i < n && j >= 2; i++) {
+    if (match[i] == -1 && aug(i)) { i = -1, j -= 2; }
+  }
+  int ret = 0;
+  for (int i = 0; i < n; i++) { ret += (match[i] != -1); }
+  return ret >> 1;
+}
+//带花树 + vector O(V^3) 点的编号从0开始
+int n, match[N], fa[N], nxt[N], mark[N], vis[N], t;
+vector<int> e[N]; queue<int> que;
+int findfa(int n) { return n == fa[n] ? n : fa[n] = findfa(fa[n]); }
+void unite(int x, int y) { fa[findfa(x)] = findfa(y); }
+int lca(int x, int y) {
+  for (t++;; swap(x, y)) {
+    if (x == -1) { continue; }
+    if (vis[x = findfa(x)] == t) { return x; }
+    vis[x] = t; x = match[x] == -1 ? -1 : nxt[match[x]];
+  }
+}
+void group(int a, int p) {
+  for (int b, c; a != p; unite(a, b), unite(b, c), a = c) {
+    b = match[a]; c = nxt[b];
+    if (findfa(c) != p) { nxt[c] = b; }
+    if (mark[b] == 2) { mark[b] = 1; que.push(b); }
+    if (mark[c] == 2) { mark[c] = 1; que.push(c); }
+  }
+}
+void aug(int st) {
+  for (int i = 0; i < n; i++) { fa[i] = i; }
+  memset(nxt, -1, sizeof(nxt)); memset(vis, -1, sizeof(vis)); memset(mark, 0, sizeof(mark));
+  while (!que.empty()) { que.pop(); } que.push(st); mark[st] = 1;
+  while (match[st] == -1 && !que.empty()) {
+    int u = que.front(); que.pop();
+    for (int i = 0; i < (int)e[u].size(); i++) {
+      int v = e[u][i];
+      if (v == match[u] || findfa(u) == findfa(v) || mark[v] == 2) { continue; }
+      if (mark[v] == 1) {
+        int p = lca(u, v);
+        if (findfa(u) != p) { nxt[u] = v; }
+        if (findfa(v) != p) { nxt[v] = u; }
+        group(u, p); group(v, p);
+      } else if (match[v] == -1) {
+        nxt[v] = u;
+        for (int j = v, k, l; ~j; j = l) { k = nxt[j]; l = match[k]; match[j] = k; match[k] = j; }
+        break;
+      } else { nxt[v] = u; que.push(match[v]); mark[match[v]] = 1; mark[v] = 2; }
+    }
+  }
+}
+int solve(int n) {
+  memset(match, -1, sizeof(match)); t = 0; int ret = 0;
+  for (int i = 0; i < n; i++) { if (match[i] == -1) { aug(i); } }
+  for (int i = 0; i < n; i++) { ret += (match[i] > i); }
+  return ret;
+}
+//ural 1099
+int main() {
+  int u, v;
+  scanf("%d", &n);
+  while (~scanf("%d%d", &u, &v)) { e[--u].push_back(--v); e[v].push_back(u); }
+  int ans = solve(n);
+  printf("%d\n", ans * 2);
+  for (int u = 0; u < n; u++) {
+    if (u < match[u]) { printf("%d %d\n", u + 1, match[u] + 1); }
+  }
+}
+
+============图论-生成树==========
+//最小生成树
+//Prim + 邻接矩阵 O(V^2)
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+int n; wtype mp[N][N], cost[N];
+bool vis[N];
+wtype Prim(int src) {
+  memset(vis, 0, sizeof(vis)); memcpy(cost, mp[src], sizeof(mp[src]));
+  wtype ret = 0; vis[src] = true;
+  for (int j = 1; j < n; j++) {
+    int u = -1; wtype mn = INF;
+    for (int i = 0; i < n; i++) {
+      if (!vis[i] && mn > cost[i]) { mn = cost[i]; u = i; }
+    }
+    if (mn == INF) { return -1; } //原图不连通
+    vis[u] = true; ret += mn;
+    for (int v = 0; v < n; v++) {
+      if (!vis[v] && cost[v] > mp[u][v]) { cost[v] = mp[u][v]; }
+    }
+  }
+  return ret;
+}
+//Prim + priority_queue + 邻接表 O(ElogV)
+typedef int wtype;
+int head[N], to[M], nxt[M], tot; wtype len[M], cost[N];
+bool vis[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y, wtype z) { to[tot] = y; len[tot] = z; nxt[tot] = head[x]; head[x] = tot++; }
+struct Node {
+  int v; wtype w;
+  bool operator<(const Node &r)const { return w > r.w; }
+};
+wtype Prim(int src) {
+  memset(cost, 0x3f, sizeof(cost)); memset(vis, 0, sizeof(vis));
+  wtype ret = 0;
+  priority_queue<Node> que; que.push((Node) {src, cost[src] = 0});
+  while (!que.empty()) {
+    int u = que.top().v; que.pop();
+    if (vis[u]) { continue; }
+    vis[u] = true; ret += cost[u];
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i];
+      if (!vis[v] && cost[v] > len[i]) { cost[v] = len[i]; que.push((Node) {v, cost[v]}); }
+    }
+  }
+  return ret;
+}
+//Kruskal + 邻接表 O(ElogE)
+typedef int wtype;
+struct Edge {
+  int u, v; wtype w;
+  bool operator<(const Edge &r)const { return w < r.w; }
+} edge[M];
+int n, fa[N], tot; //加边前赋值为0
+void addedge(int u, int v, wtype w) { edge[tot].u = u; edge[tot].v = v; edge[tot++].w = w; }
+int findfa(int x) { return fa[x] == -1 ? x : fa[x] = findfa(fa[x]); }
+wtype Kruskal() {
+  memset(fa, -1, sizeof(fa));
+  sort(edge, edge + tot);
+  int cnt = 0; wtype ret = 0;
+  for (int i = 0; i < tot; i++) {
+    int u = edge[i].u, v = edge[i].v, t1 = findfa(u), t2 = findfa(v); wtype w = edge[i].w;
+    if (t1 != t2) { ret += w; fa[t1] = t2; cnt++; }
+    if (cnt == n - 1) { break; }
+  }
+  if (cnt < n - 1) { return -1; } //不连通
+  return ret;
+}
+//次小生成树
+//Prim + 邻接矩阵 O(V^2 + E)
+//求最小生成树时, 用数组Mx[i][j]来表示MST中i到j最大边权
+//求完后, 直接枚举所有不在MST中的边, 替换掉最大边权的边, 更新答案
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+int n, pre[N];
+wtype mp[N][N], cost[N], Mx[N][N]; //Mx[i][j]表示在最小生成树中从i到j的路径中的最大边权
+bool vis[N], used[N][N];
+wtype Prim() {
+  memset(Mx, 0, sizeof(Mx));
+  memset(pre, 0, sizeof(pre));
+  memset(vis, 0, sizeof(vis));
+  memset(used, 0, sizeof(used));
+  wtype ret = 0; vis[0] = true; pre[0] = -1;
+  for (int i = 1; i < n; i++) { cost[i] = mp[0][i]; }
+  for (int j = 1; j < n; j++) {
+    int u = -1; wtype mn = INF;
+    for (int j = 0; j < n; j++)
+      if (!vis[j] && mn > cost[j]) { mn = cost[j]; u = j; }
+    if (mn == INF) { return -1; } //原图不连通
+    vis[u] = true; ret += mn;
+    used[u][pre[u]] = used[pre[u]][u] = true;
+    for (int v = 0; v < n; v++) {
+      if (vis[v]) { Mx[v][u] = Mx[u][v] = max(Mx[v][pre[u]], cost[u]); }
+      if (!vis[v] && cost[v] > mp[u][v]) { cost[v] = mp[u][v]; pre[v] = u; }
+    }
+  }
+  return ret;
+}
+//Kruskal + 邻接表 O(VElogE)
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+struct Edge {
+  int u, v; wtype w;
+  bool operator<(const Edge &r)const { return w < r.w; }
+} edge[M];
+int n, fa[N], path[N], tot; //加边前赋值为0
+void addedge(int u, int v, wtype w) { edge[tot].u = u; edge[tot].v = v; edge[tot++].w = w; }
+int findfa(int x) { return fa[x] == -1 ? x : fa[x] = findfa(fa[x]); }
+wtype Kruskal() {
+  memset(fa, -1, sizeof(fa));
+  sort(edge, edge + tot);
+  int cnt = 0; wtype ret = 0;
+  for (int i = 0; i < tot; i++) {
+    int u = edge[i].u, v = edge[i].v, t1 = findfa(u), t2 = findfa(v); wtype w = edge[i].w;
+    if (t1 != t2) { ret += w; fa[t1] = t2; path[cnt++] = i; }
+    if (cnt == n - 1) { break; }
+  }
+  if (cnt < n - 1) { return -1; } //不连通
+  return ret;
+}
+wtype KruskalSec() {
+  wtype ret = INF;
+  for (int x = 0; x < n - 1; x++) {
+    memset(fa, -1, sizeof(fa));
+    int cnt = 0; wtype tmp = 0;
+    for (int i = 0; i < tot; i++) {
+      if (i != path[x]) {
+        int u = edge[i].u, v = edge[i].v, t1 = findfa(u), t2 = findfa(v); wtype w = edge[i].w;
+        if (t1 != t2) { tmp += w; fa[t1] = t2; cnt++; }
+        if (cnt == n - 1) { if (tmp < ret) { ret = tmp; } break; }
+      }
+    }
+  }
+  if (ret == INF) { return -1; } //不存在
+  return ret;
+}
+//最小树形图
+//朱刘算法 O(VE)
+typedef int wtype;
+const int N = 1005;
+const int M = 40005;
+const wtype INF = 0x3f3f3f3f;
+struct Edge { int u, v; wtype w; } edge[M];
+int n, m, pre[N], id[N], vis[N];
+wtype g[N][N], in[N];
+wtype Zhuliu(int root) {
+  wtype res = 0; int u, v;
+  for (;;) {
+    memset(in, 0x3f, sizeof(in));
+    memset(id, -1, sizeof(id));
+    memset(vis, -1, sizeof(vis));
+    for (int i = 0; i < m; i++) {
+      if (edge[i].u != edge[i].v && edge[i].w < in[edge[i].v]) {
+        pre[edge[i].v] = edge[i].u; in[edge[i].v] = edge[i].w;
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      if (i != root && in[i] == INF) { return -1; } //不存在最小树形图
+    }
+    int tn = 0; in[root] = 0;
+    for (int i = 0; i < n; i++) {
+      res += in[i]; v = i;
+      while (vis[v] != i && id[v] == -1 && v != root) {
+        vis[v] = i; v = pre[v];
+      }
+      if (v != root && id[v] == -1) {
+        for (int u = pre[v]; u != v ; u = pre[u]) { id[u] = tn; }
+        id[v] = tn++;
+      }
+    }
+    if (tn == 0) { break; } //没有有向环
+    for (int i = 0; i < n; i++) {
+      if (id[i] == -1) { id[i] = tn++; }
+    }
+    for (int i = 0; i < m;) {
+      v = edge[i].v; edge[i].u = id[edge[i].u]; edge[i].v = id[edge[i].v];
+      if (edge[i].u != edge[i].v) { edge[i++].w -= in[v]; }
+      else { swap(edge[i], edge[--m]); }
+    }
+    n = tn; root = id[root];
+  }
+  return res;
+}
+//POJ 3164
+int main() {
+  int C = 0, T, u, v, w;
+  scanf("%d", &T);
+  while (++C <= T) {
+    memset(g, 0x3f, sizeof(g));
+    scanf("%d%d", &n, &m);
+    while (m--) {
+      scanf("%d%d%d", &u, &v, &w);
+      if (u == v) { continue; }
+      g[u][v] = min(g[u][v], w);
+    }
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        if (g[i][j] < INF) { edge[m].u = i; edge[m].v = j; edge[m++].w = g[i][j]; }
+      }
+    }
+    wtype ans = Zhuliu(0);
+    printf("Case #%d: ", C);
+    if (ans == -1) { puts("Possums!"); }
+    else { printf("%d\n", ans); }
+  }
+}
+//曼哈顿距离最小生成树
+//Kruskal O(VlogV)
+const int INF = 0x3f3f3f3f;
+struct Point {
+  int x, y, id;
+  bool operator<(const Point &r)const { return x < r.x || (x == r.x && y < r.y); }
+} p[N];
+struct Edge { //有效边
+  int u, v, w;
+  bool operator<(const Edge &r)const { return w < r.w; }
+} edge[N << 2];
+struct BIT { //树状数组, 找y-x大于当前的, 但是y+x最小的
+  int min_val, pos;
+  void init() { min_val = INF; pos = -1; }
+} bit[N];
+int n, tot, fa[N];
+int a[N], b[N];
+void addedge(int u, int v, int w) { edge[tot].u = u; edge[tot].v = v; edge[tot++].w = w; }
+int findfa(int x) { return fa[x] == -1 ? x : fa[x] = findfa(fa[x]); }
+inline int cost(Point a, Point b) { return abs(a.x - b.x) + abs(a.y - b.y); }
+inline int lowbit(int x) { return x & (-x); }
+void update(int i, int val, int pos) {
+  for (; i > 0; i -= lowbit(i)) {
+    if (val < bit[i].min_val) { bit[i].min_val = val; bit[i].pos = pos; }
+  }
+}
+int query(int i, int m) { //查询[i, m]的最小值位置
+  int min_val = INF, pos = -1;
+  for (; i <= m; i += lowbit(i)) {
+    if (bit[i].min_val < min_val) { min_val = bit[i].min_val; pos = bit[i].pos; }
+  }
+  return pos;
+}
+void MMST() {
+  tot = 0;
+  for (int d = 0; d < 4; d++) { //4种坐标变换
+    if (d == 1 || d == 3) { for (int i = 0; i < n; i++) { swap(p[i].x, p[i].y); } }
+    else if (d == 2) { for (int i = 0; i < n; i++) { p[i].x = -p[i].x; } }
+    sort(p, p + n);
+    for (int i = 0; i < n; i++) { a[i] = b[i] = p[i].y - p[i].x; }
+    sort(b, b + n);
+    int m = unique(b, b + n) - b;
+    for (int i = 1; i <= m; i++) { bit[i].init(); }
+    for (int i = n - 1 ; i >= 0; i--) {
+      int pos = lower_bound(b, b + m, a[i]) - b + 1, ans = query(pos, m);
+      if (ans != -1) { addedge(p[i].id, p[ans].id, cost(p[i], p[ans])); }
+      update(pos, p[i].x + p[i].y, i);
+    }
+  }
+}
+int Kruskal() {
+  MMST();
+  memset(fa, -1, sizeof(fa));
+  sort(edge, edge + tot);
+  int ret = 0;
+  for (int i = 0, k = 0; i < tot; i++) {
+    int u = edge[i].u, v = edge[i].v, t1 = findfa(u), t2 = findfa(v);
+    if (t1 != t2) {
+      fa[t1] = t2; ret += edge[i].w;
+      if (++k == n - 1) { return ret; }
+    }
+  }
+}
+//POJ3241 求曼哈顿最小生成树上第k大的边
+int Kruskal(int k) {
+  MMST(n, p);
+  memset(fa, -1, sizeof(fa));
+  sort(edge, edge + tot);
+  for (int i = 0; i < tot; i++) {
+    int u = edge[i].u, v = edge[i].v, t1 = findfa(u), t2 = findfa(v);
+    if (t1 != t2) {
+      fa[t1] = t2;
+      if (--k == 0) { return edge[i].w; }
+    }
+  }
+}
+//生成树计数
+//Matrix-Tree定理(Kirchhoff 矩阵-树定理)
+//1、G的度数矩阵D[G]是一个n*n的矩阵, 并且满足: 当i ≠ j时,dij = 0; 当i = j时, dij等于vi的度数
+//2、G的邻接矩阵A[G]也是一个n*n的矩阵, 并且满足: 如果vi vj之间有边直接相连, 则aij = 1, 否则为0
+//我们定义G的Kirchhoff矩阵(也称为拉普拉斯算子)C[G]为C[G] = D[G] - A[G], 则Matrix-Tree定理可以
+//描述为: G的所有不同的生成树的个数等于其Kirchhoff矩阵C[G]任何一个n - 1阶主子式的行列式的绝对值
+//所谓n - 1阶主子式, 就是对于r(1 ≤ r ≤ n), 将C[G]的第r行、第r列同时去掉后得到的新矩阵, 用Cr[G]表示。
+
+
+============图论-网络流=========
+//最大流
+//SAP + 邻接矩阵 O(V^2*E) 点的编号默认从0开始
+typedef long long ftype;
+int n, dis[N], pre[N], cur[N], gap[N];
+ftype cap[N][N];
+ftype SAP(int src, int sink, int n) {
+  memset(dis, 0, sizeof(dis));
+  memset(cur, 0, sizeof(cur));
+  memset(gap, 0, sizeof(gap));
+  int u = src; ftype mxflow = 0, aug = -1; pre[src] = src; gap[0] = n;
+  while (dis[src] < n) {
+loop:
+    for (int v = cur[u]; v < n; ++v) {
+      if (cap[u][v] > 0 && dis[u] == dis[v] + 1) {
+        if (aug == -1 || aug > cap[u][v]) { aug = cap[u][v]; }
+        pre[v] = u; u = cur[u] = v;
+        if (v == sink) {
+          for (u = pre[u]; v != src; v = u, u = pre[u]) {
+            cap[u][v] -= aug; cap[v][u] += aug;
+          }
+          mxflow += aug; aug = -1;
+        }
+        goto loop;
+      }
+    }
+    int mndis = n - 1;
+    for (int v = 0; v < n; v++) {
+      if (cap[u][v] > 0 && mndis > dis[v]) { cur[u] = v; mndis = dis[v]; }
+    }
+    if (--gap[dis[u]] == 0) { break; }
+    dis[u] = mndis + 1; gap[dis[u]]++; u = pre[u];
+  }
+  return mxflow;
+}
+//ISAP + 邻接表 O(V^2*E)
+typedef long long ftype;
+const ftype INF = 0x3f3f3f3f;
+int head[N], to[M], nxt[M], tot, dis[N], pre[N], cur[N], gap[N];
+ftype cap[M];
+inline void init() { tot = 0; memset(head, -1, sizeof(head)); }
+inline void addedge(int x, int y, ftype w, ftype rw = 0) {
+  to[tot] = y; cap[tot] = w; nxt[tot] = head[x]; head[x] = tot++;
+  to[tot] = x; cap[tot] = rw; nxt[tot] = head[y]; head[y] = tot++;
+}
+ftype ISAP(int src, int sink, int n) {
+  memset(dis, 0, sizeof(dis));
+  memset(gap, 0, sizeof(gap));
+  memcpy(cur, head, sizeof(head));
+  int u = src, v; ftype mxflow = 0; pre[u] = -1; gap[0] = n;
+  while (dis[src] < n) {
+    if (u == sink) {
+      ftype mndis = INF;
+      for (int i = pre[u]; ~i; i = pre[to[i ^ 1]]) {
+        if (mndis > cap[i]) { mndis = cap[i]; }
+      }
+      for (int i = pre[u]; ~i; i = pre[to[i ^ 1]]) {
+        cap[i] -= mndis; cap[i ^ 1] += mndis;
+      }
+      u = src; mxflow += mndis;
+      continue;
+    }
+    bool flag = false;
+    for (int i = cur[u]; ~i; i = nxt[i]) {
+      v = to[i];
+      if (cap[i] > 0 && dis[v] + 1 == dis[u]) {
+        flag = true; cur[u] = pre[v] = i; break;
+      }
+    }
+    if (flag) { u = v; continue; }
+    int mndis = n;
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      if (cap[i] > 0 && dis[to[i]] < mndis) { mndis = dis[to[i]]; cur[u] = i; }
+    }
+    if (--gap[dis[u]] == 0) { return mxflow; }
+    dis[u] = mndis + 1; gap[dis[u]]++;
+    if (u != src) { u = to[pre[u] ^ 1]; }
+  }
+  return mxflow;
+}
+//ISAP + bfs标号 + queue + 邻接表 O(V^2*E)
+typedef long long ftype;
+const ftype INF = 0x3f3f3f3f;
+int n, head[N], to[M], nxt[M], tot, dis[N], pre[N], cur[N], gap[N];
+ftype cap[M];
+inline void init() { tot = 0; memset(head, -1, sizeof(head)); }
+inline void addedge(int x, int y, ftype w, ftype rw = 0) {
+  to[tot] = y; cap[tot] = w; nxt[tot] = head[x]; head[x] = tot++;
+  to[tot] = x; cap[tot] = rw; nxt[tot] = head[y]; head[y] = tot++;
+}
+void bfs(int sink) {
+  memset(dis, -1, sizeof(dis));
+  memset(gap, 0, sizeof(gap));
+  dis[sink] = 0; gap[0] = 1;
+  queue<int> que; que.push(sink);
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    for (int i = head[u], v; ~i; i = nxt[i]) {
+      v = to[i];
+      if (~dis[v]) { continue; }
+      dis[v] = dis[u] + 1; gap[dis[v]]++; que.push(v);
+    }
+  }
+}
+ftype ISAP(int src, int sink, int n) {
+  bfs(sink);
+  memcpy(cur, head, sizeof(head));
+  int u = pre[src] = src, v, i; ftype mxflow = 0;
+  while (dis[sink] < n) {
+    if (u == sink) {
+      ftype mndis = INF; int inser;
+      for (i = src; i != sink; i = to[cur[i]]) {
+        if (mndis > cap[cur[i]]) { mndis = cap[cur[i]]; inser = i; }
+      }
+      for (i = src; i != sink; i = to[cur[i]]) {
+        cap[cur[i]] -= mndis; cap[cur[i] ^ 1] += mndis;
+      }
+      mxflow += mndis; u = inser;
+    }
+    for (i = cur[u]; ~i; i = nxt[i]) {
+      v = to[i];
+      if (dis[v] + 1 == dis[u] && cap[i] > 0) { break; }
+    }
+    if (~i) { cur[u] = i; pre[to[i]] = u; u = to[i]; }
+    else {
+      if (--gap[dis[u]] == 0) { break; }
+      int mndis = n;
+      for (i = head[u]; ~i; i = nxt[i]) {
+        if (cap[i] > 0 && mndis > dis[to[i]]) { cur[u] = i; mndis = dis[to[i]]; }
+      }
+      dis[u] = mndis + 1; gap[dis[u]]++; u = pre[u];
+    }
+  }
+  return mxflow;
+}
+//Dinic O(V^2*E)
+typedef long long ftype;
+const ftype INF = 0x3f3f3f3f;
+int head[N], to[M], nxt[M], tot, dis[N], cur[N], src, sink;
+ftype cap[M];
+inline void init() { tot = 0; memset(head, -1, sizeof(head)); }
+inline void addedge(int x, int y, ftype w, ftype rw = 0) {
+  to[tot] = y; cap[tot] = w; nxt[tot] = head[x]; head[x] = tot++;
+  to[tot] = x; cap[tot] = rw; nxt[tot] = head[y]; head[y] = tot++;
+}
+bool bfs() {
+  memset(dis, 0, sizeof(dis)); dis[src] = 1;
+  queue<int> que; que.push(src);
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    for (int i = head[u], v; ~i; i = nxt[i]) {
+      v = to[i];
+      if (cap[i] > 0 && !dis[v]) { dis[v] = dis[u] + 1; que.push(v); }
+    }
+  }
+  return dis[sink];
+}
+ftype dfs(int u, ftype delta) {
+  if (u == sink || delta == 0) { return delta; }
+  ftype ret = 0;
+  for (int &i = cur[u], v; delta && ~i; i = nxt[i]) {
+    v = to[i];
+    if (cap[i] > 0 && dis[v] == dis[u] + 1) {
+      ftype aug = dfs(v, min(cap[i], delta));
+      if (!aug) { continue; }
+      cap[i] -= aug; cap[i ^ 1] += aug; delta -= aug; ret += aug;
+      if (!delta) { break; }
+    }
+  }
+  return ret;
+}
+ftype Dinic() {
+  ftype ret = 0;
+  while (bfs()) {
+    memcpy(cur, head, sizeof(head));
+    ret += dfs(src, INF);
+  }
+  return ret;
+}
+//HLPP Highest Label Preflow Push O(V^3)
+typedef long long ftype;
+struct Edge { int v; ftype c; } edge[M];
+vector<int> e[N];
+int n, m, src, sink, c[N << 1], d[N], done[N];
+ftype w[N];
+bool vis[N];
+void init(int _n, int _src, int _sink) {
+  n = _n; m = 0; src = _src; sink = _sink;
+  for (int i = 0; i <= n; ++i) { e[i].clear(); }
+}
+inline void addEdge(int x, int y, ftype w, ftype rw = 0) {
+  edge[m].v = y; edge[m].c = w; e[x].push_back(m++);
+  edge[m].v = x; edge[m].c = rw; e[y].push_back(m++);
+}
+void bfs() {
+  memset(c, 0, sizeof(c));
+  fill(d, d + n, n + 1);
+  queue<int> que; que.push(sink);
+  c[n + 1] = n - 1; d[src] = n; d[sink] = 0;
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    c[n + 1]++; c[d[u]]++;
+    for (int i = 0, v; i < (int)e[u].size(); i++) {
+      v = edge[e[u][i]].v; ftype c = edge[e[u][i] ^ 1].c;
+      if (d[v] == n + 1 && c > 0) { d[v] = d[u] + 1; que.push(v); }
+    }
+  }
+}
+int HLPP(int n) {
+  memset(w, 0, sizeof(w));
+  memset(done, 0, sizeof(done));
+  memset(vis, 0, sizeof(vis));
+  bfs();
+  int todo = -1;
+  vector<queue<int>> que(n << 1);
+  vis[src] = vis[sink] = true;
+  for (int i = 0, v; i < (int)e[src].size(); i++) {
+    Edge &arc = edge[e[src][i]], &cra = edge[e[src][i] ^ 1]; v = arc.v;
+    w[v] += arc.c; cra.c += arc.c; arc.c = 0;
+    if (!vis[v]) { vis[v] = true; que[d[v]].push(v); todo = max(todo, d[v]); }
+  }
+  while (todo >= 0) {
+    if (que[todo].empty()) { todo--; continue; }
+    int u = que[todo].front(); que[todo].pop();
+    vis[u] = false;
+    while (done[u] < (int)e[u].size()) {
+      Edge &arc = edge[e[u][done[u]]]; int v = arc.v;
+      if (d[u] == d[v] + 1 && arc.c > 0) {
+        Edge &cra = edge[e[u][done[u]] ^ 1]; ftype f = min(w[u], arc.c);
+        w[u] -= f; w[v] += f; arc.c -= f; cra.c += f;
+        if (!vis[v]) { vis[v] = true; que[d[v]].push(v); }
+        if (w[u] == 0) { break; }
+      }
+      done[u]++;
+    }
+    if (w[u] > 0) {
+      int du = d[u];
+      c[d[u]]--; d[u] = n << 1;
+      for (int i = 0, v; i < (int)e[u].size(); i++) {
+        Edge &arc = edge[e[u][i]]; v = arc.v;
+        if (d[u] > d[v] + 1 && arc.c > 0) { d[u] = d[v] + 1; done[u] = i; }
+      }
+      c[d[u]]++;
+      if (c[du] == 0) {
+        for (int i = 0; i < n; ++i) {
+          if (d[i] > du && d[i] < n + 1) { c[d[i]]--; c[n + 1]++; d[i] = n + 1; }
+        }
+      }
+      vis[u] = true; que[d[u]].push(u); todo = d[u];
+    }
+  }
+  return w[sink];
+}
+//有上下界的网络流
+//无源汇上下界最大流
+//增加超级源汇点, 边的容量变为原弧的上界减去下界的差, 记录每个点的入流下界和-出流下界和
+//当下界和大于0时连一条超级源点到这个点的边, 容量为这个下界和
+//当下界和小于0时连一条这个点到超级汇点的边, 容量为下界和的绝对值
+//求一遍最大流, 如果源的出度满流的话, 即存在最大流, 否则则不存在最大流
+//有源汇上下界最大流
+//从汇连一条容量INF的边到源, 将有源汇转化为无源汇
+//判断是否满流后, 去掉超级源汇及其边(head[]删除即可, 调用最大流算法时, 点的数量要包括超级源汇)
+//再跑一遍原源到原汇的最大流, 输出即可
+//有源汇上下界最小流
+//增加超级源汇点, 求一遍超级源到超级汇的最大流
+//从原汇点连一条容量INF的边到原源点, 再求一遍超级源到超级汇的最大流
+//当且仅当超级源的出度满流时有可行解, 解为原汇点到原源点的反向弧
+////最小费用最大流 MCMF O(V*E*f)
+//最小费用流: 若dis[sink]为负则继续增广
+//最小费用最大流: 若dis[sink]不为INF则继续增广
+//求最大费用只需取相反数, 结果取相反数即可
+typedef long long ftype;
+const ftype INF = 0x3f3f3f3f;
+int head[N], to[M], nxt[M], tot, cur[N];
+ftype cap[M], cost[M], flow[N], dis[N], mncost, mxflow;
+bool vis[N];
+inline void init() { tot = 0; memset(head, -1, sizeof(head)); }
+inline void addedge(int x, int y, ftype w, ftype c) {
+  to[tot] = y; cap[tot] = w; cost[tot] = c; nxt[tot] = head[x]; head[x] = tot++;
+  to[tot] = x; cap[tot] = 0; cost[tot] = -c; nxt[tot] = head[y]; head[y] = tot++;
+}
+bool SPFA(int src, int sink) {
+  memset(dis, 0x3f, sizeof(dis));
+  memset(vis, 0, sizeof(vis));
+  dis[src] = 0; cur[src] = -1; flow[src] = INF;
+  queue<int> que; que.push(src);
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    vis[u] = false;
+    for (int i = head[u], v; ~i; i = nxt[i]) {
+      v = to[i];
+      if (cap[i] > 0 && dis[v] > dis[u] + cost[i]) {
+        dis[v] = dis[u] + cost[i]; flow[v] = min(flow[u], cap[i]); cur[v] = i;
+        if (!vis[v]) { vis[v] = true; que.push(v); }
+      }
+    }
+  }
+  if (dis[sink] == INF) { return false; }
+  mxflow += flow[sink]; mncost += flow[sink] * dis[sink];
+  for (int i = cur[sink]; ~i; i = cur[to[i ^ 1]]) {
+    cap[i] -= flow[sink]; cap[i ^ 1] += flow[sink];
+  }
+  return true;
+}
+ftype MCMF(int src, int sink) {
+  mxflow = mncost = 0;
+  while (SPFA(src, sink));
+  return mncost;
+}
+
+===========图论-应用==========
+//拓扑排序 O(V^2)
+//queue->普通判断用, priority_queue->字典序
+//邻接矩阵
+int n, mp[N][N], in[N], ret[N];
+int topoSort() {
+  queue<int> que; int k = 0; bool flag = false;
+  for (int i = 0; i < n; i++) { if (in[i] == 0) { que.push(i); } }
+  while (!que.empty()) {
+    if (que.size() > 1) { flag = true; }
+    int u = que.front(); que.pop(); ret[k++] = u;
+    for (int v = 0; v < n; v++) {
+      if (mp[u][v] && --in[v] == 0) { que.push(v); }
+    }
+  }
+  return k < n ? -1 : flag ? 0 : 1; //有环, 不唯一, 唯一
+}
+//邻接表
+int head[N], to[M], nxt[M], tot, n, in[N], ret[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+bool topoSort() {
+  priority_queue<int> que; int k = 0;
+  for (int i = 0; i < n; i++) { if (in[i] == 0) { que.push(i); } }
+  while (!que.empty()) {
+    int u = que.top(); que.pop(); ret[k++] = u;
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      if (--in[to[i]] == 0) { que.push(to[i]); }
+    }
+  }
+  return k == n;
+}
+//染色判断二分图
+bool col[N];
+bool Color(int u) {
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (!col[v]) {
+      col[v] = !col[u];
+      if (!Color(v)) { return false; }
+    } else if (col[v] == col[u]) { return false; }
+  }
+  return true;
+}
+//欧拉回路: 每条边只经过一次, 要求回到起点
+//欧拉路径: 每条边只经过一次, 不要求回到起点
+//欧拉路径的判断:
+//无向图: 连通(不考虑度为0的点), 每个顶点度数都为偶数或者有且仅有两个点的度数不为偶数
+//有向图: 基图连通(把边当成无向边, 同样不考虑度为0的点), 每个顶点出度等于入度
+//或者有且仅有一个点的出度比入度多1, 有且仅有一个点的出度比入度少1, 其余出度等于入度
+//混合图: 如果存在欧拉回路, 一点存在欧拉路径了。否则如果有且仅有两个点的(出度 - 入度)是奇数,
+//那么给这个两个点加边, 判断是否存在欧拉回路
+//欧拉回路判断:
+//无向图: 连通(不考虑度为0的点), 每个顶点度数都为偶数
+//有向图: 基图连通(同样不考虑度为0的点), 每个顶点出度等于入度
+//混合图: 基图连通(不考虑度为0的点), 然后借助网络流判定
+//首先给原图中的每条无向边随便指定一个方向, 将原图改为有向图G'
+//设D[i]为G'中(点i的出度 - 点i的入度), 若存在D[i]为奇数, 或者图不连通, 则无解
+//若初始D值都是偶数, 则将G'改装成网络: 设立源点S和汇点T
+//对于每个D[i] > 0的点i, 连边<S, i>, 容量为D[i] / 2; 对于每个D[j] < 0的点j, 连边<j, T>, 容量为-D[j] / 2
+//G'中的每条边在网络中仍保留, 容量为1, 求这个网络的最大流, 若S引出的所有边均满流, 则原混合图是欧拉图
+//将网络中所有流量为1的不与S或T关联的边在G'中改变方向,形成的新图G''一定是有向欧拉图
+//欧拉回路 + 邻接矩阵 O(N^2)
+//求欧拉路径/回路经过的点 支持自环和重边
+int n, mp[N][N], path[N], cnt;
+void dfsu(int u) {
+  for (int v = n - 1; v >= 0; v--) {
+    while (mp[u][v]) { mp[u][v]--; mp[v][u]--; dfsu(v); }
+  }
+  path[cnt++] = u;
+}
+void dfsd(int u) {
+  for (int v = n - 1; v >= 0; v--) {
+    while (mp[u][v]) { mp[u][v]--; dfsd(v); }
+  }
+  path[cnt++] = u;
+}
+//无向图 SGU101
+int head[N], to[M], nxt[M], tot, deg[N], path[M], cnt;
+bool vis[M];
+void init() {
+  tot = 0; cnt = 0;
+  memset(head, -1, sizeof(head)); memset(vis, 0, sizeof(vis)); memset(deg, 0, sizeof(deg));
+}
+void addedge(int x, int y) {
+  to[tot] = y; nxt[tot] = head[x]; head[x] = tot++;
+  to[tot] = x; nxt[tot] = head[y]; head[y] = tot++;
+}
+void dfs(int u) {
+  for (int &i = head[u]; ~i;) {
+    if (!vis[i]) { vis[i] = vis[i ^ 1] = true; int t = i; dfs(to[i]); path[cnt++] = t; }
+    else { i = nxt[i]; }
+  }
+}
+int main() {
+  int n, u, v;
+  while (~scanf("%d", &n)) {
+    init();
+    for (int i = 0; i < n; i++) {
+      scanf("%d%d", &u, &v); addedge(u, v); deg[u]++; deg[v]++;
+    }
+    int s = -1, cnto = 0;
+    for (int i = 0; i <= 6; i++) {
+      if (s == -1 && deg[i] > 0) { s = i; }
+      if (deg[i] & 1) { cnto++; s = i; }
+    }
+    if (cnto != 0 && cnto != 2) { puts("No solution"); continue; }
+    dfs(s);
+    if (cnt != n) { puts("No solution"); continue; }
+    for (int i = 0; i < cnt; i++) {
+      printf("%d %c\n", (path[i] >> 1) + 1, path[i] & 1 ? '+' : '-');
+    }
+  }
+}
+//有向图 POJ2337
+//给出n个小写字母组成的单词, 要求将n个单词连接起来, 输出字典序最小的解
+int head[N], to[M], nxt[M], tot, in[N], out[N], path[N], cnt;
+bool vis[M];
+string str[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) {
+  to[tot] = y; nxt[tot] = head[x]; head[x] = tot++;
+}
+void dfs(int u) {
+  for (int &i = head[u]; ~i;) {
+    if (!vis[i]) { vis[i] = true; int t = i; dfs(to[i]); path[cnt++] = n - t - 1; }
+    else { i = nxt[i]; }
+  }
+}
+int main() {
+  int T, n;
+  char s[25];
+  scanf("%d", &T);
+  while (T--) {
+    init(); cnt = 0;
+    memset(vis, 0, sizeof(vis));
+    memset(in, 0, sizeof(in));
+    memset(out, 0, sizeof(out));
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) { scanf("%s", s); str[i] = s; }
+    sort(str, str + n);
+    int s = 26;
+    for (int i = n - 1; i >= 0; i--) { //字典序大的先加入
+      int u = str[i][0] - 'a', v = str[i][str[i].size() - 1] - 'a';
+      addedge(u, v); out[u]++; in[v]++;
+      s = min(s, min(u, v));
+    }
+    int cnt1 = 0, cnt2 = 0;
+    for (int i = 0; i < 26; i++) {
+      if (out[i] - in[i] == 1) { cnt1++; s = i; } //如果有一个出度比入度大1的点, 就从这个点出发, 否则从最小的点出发
+      else if (out[i] - in[i] == -1) { cnt2++; }
+      else if (out[i] - in[i] != 0) { cnt1 = 3; }
+    }
+    if (!((cnt1 == 0 && cnt2 == 0) || (cnt1 == 1 && cnt2 == 1))) { puts("***"); continue; }
+    dfs(s);
+    if (cnt != n) { puts("***"); continue; }
+    for (int i = cnt - 1; i >= 0; i--) {
+      printf("%s%c", str[path[i]].c_str(), i > 0 ? '.' : '\n');
+    }
+  }
+}
+//有向图 并查集 HDU1116
+//判断所有单词能不能连成一串, 如果有多个重复的单词, 也必须满足这样的条件
+int n, fa[N], in[N], out[N], p[N];
+bool vis[N];
+char s[M];
+void init() {
+  memset(vis, 0, sizeof(vis)); memset(in, 0, sizeof(in)); memset(out, 0, sizeof(out));
+  for (int i = 0; i < N; i++) { fa[i] = i; }
+}
+int findfa(int n) {
+  return n == fa[n] ? n : fa[n] = findfa(fa[n]);
+}
+inline void unite(int x, int y) {
+  x = findfa(x); y = findfa(y);
+  if (x != y) { fa[y] = x; }
+}
+int main() {
+  int T, n;
+  scanf("%d", &T);
+  while (T--) {
+    init();
+    scanf("%d", &n);
+    while (n--) {
+      scanf("%s", s); int u = s[0] - 'a', v = s[strlen(s) - 1] - 'a';
+      unite(u, v); out[u]++; in[v]++; vis[u] = vis[v] = true;
+    }
+    int cnt = 0, k = 0;
+    for (int i = 0; i < N; i++) {
+      fa[i] = findfa(i);
+      if (vis[i] && fa[i] == i) { cnt++; }
+    }
+    if (cnt > 1) { puts("The door cannot be opened."); continue; } //不连通
+    for (int i = 0; i < N; i++) {
+      if (in[i] != out[i]) { p[k++] = i; if (k > 2) { break; } }
+    }
+    if (k == 0 || (k == 2 && ((out[p[0]] - in[p[0]] == 1 && in[p[1]] - out[p[1]] == 1) ||
+                              (out[p[1]] - in[p[1]] == 1 && in[p[0]] - out[p[0]] == 1)))) {
+      puts("Ordering is possible.");
+    } else { puts("The door cannot be opened."); }
+  }
+}
+//混合图 POJ1637 (本题保证连通)
+//判断欧拉回路 需ISAP + 邻接表 O(V^2*E)
+int in[N], out[N];
+int main() {
+  int T, u, v, w;
+  scanf("%d", &T);
+  while (T--) {
+    init();
+    memset(in, 0, sizeof(in)); memset(out, 0, sizeof(out));
+    scanf("%d%d", &n, &m);
+    while (m--) {
+      scanf("%d%d%d", &u, &v, &w); out[u]++; in[v]++;
+      if (w == 0) { addedge(u, v, 1); } //双向
+    }
+    bool flag = true;
+    for (int i = 1; i <= n; i++) {
+      if (out[i] - in[i] > 0) { addedge(0, i, (out[i] - in[i]) >> 1); }
+      else if (in[i] - out[i] > 0) { addedge(i, n + 1, (in[i] - out[i]) >> 1); }
+      if (out[i] - in[i] & 1) { flag = false; break; }
+    }
+    if (!flag) { puts("impossible"); continue; }
+    ISAP(0, n + 1, n + 2);
+    for (int i = head[0]; ~i; i = nxt[i]) {
+      if (cap[i] > 0 && cap[i] > flow[i]) { flag = false; break; }
+    }
+    puts(flag ? "possible" : "impossible");
+  }
+}
+//2-SAT
+//染色法
+const int N = 20005;
+const int M = 100005;
+int head[N], to[M], nxt[M], tot;
+bool vis[N]; //染色标记
+int S[N], top; //栈
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+bool dfs(int u) {
+  if (vis[u ^ 1]) { return false; }
+  if (vis[u]) { return true; }
+  vis[u] = true; S[top++] = u;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    if (!dfs(to[i])) { return false; }
+  }
+  return true;
+}
+bool twoSAT(int n) {
+  memset(vis, 0, sizeof(vis));
+  for (int i = 0; i < n; i += 2) {
+    if (vis[i] || vis[i ^ 1]) { continue; }
+    top = 0;
+    if (!dfs(i)) {
+      while (top) { vis[S[--top]] = false; }
+      if (!dfs(i ^ 1)) { return false; }
+    }
+  }
+  return true;
+}
+//HDU 1814
+int main() {
+  int n, m, u, v;
+  while (~scanf("%d%d", &n, &m)) {
+    init();
+    while (m--) {
+      scanf("%d%d", &u, &v); u--; v--;
+      addedge(u, v ^ 1); addedge(v, u ^ 1);
+    }
+    if (twoSAT(n << 1)) {
+      for (int i = 0; i < n << 1; i++) {
+        if (vis[i]) { printf("%d\n", i + 1); }
+      }
+    } else { printf("NIE\n"); }
+  }
+}
+//Tarjan强连通缩点
+const int N = 1005;
+const int M = 100005;
+int head[N], to[M], nxt[M], tot;
+int num[N], Low[N], DFN[N], S[N], Belong[N], idx, top, scc; //Belong数组的值1~scc
+bool instack[N];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y) { to[tot] = y; nxt[tot] = head[x]; head[x] = tot++; }
+void Tarjan(int u) {
+  Low[u] = DFN[u] = ++idx; S[top++] = u; instack[u] = true;
+  for (int i = head[u]; ~i; i = nxt[i]) {
+    int v = to[i];
+    if (!DFN[v]) { Tarjan(v); Low[u] = min(Low[u], Low[v]); }
+    else if (instack[v] && Low[u] > DFN[v]) { Low[u] = DFN[v]; }
+  }
+  if (Low[u] == DFN[u]) {
+    scc++;
+    do { v = S[--top]; instack[v] = false; Belong[v] = scc; num[scc]++; } while (v != u);
+  }
+}
+bool solvable(int n) { //n是总个数, 需要选择一半
+  memset(DFN, 0, sizeof(DFN));
+  memset(instack, 0, sizeof(instack));
+  memset(num, 0, sizeof(num));
+  idx = scc = top = 0;
+  for (int i = 0; i < n; i++) { if (!DFN[i]) { Tarjan(i); } }
+  for (int i = 0; i < n; i += 2) { if (Belong[i] == Belong[i ^ 1]) { return false; } }
+  return true;
+}
+//拓扑排序求任意一组解部分
+queue<int> q1, q2;
+vector<vector<int>> dag; //缩点后的逆向DAG图
+char color[N]; //染色, 为'R'是选择的
+int cf[N], indeg[N]; //入度
+void solve(int n) {
+  dag.assign(scc + 1, vector<int>());
+  memset(indeg, 0, sizeof(indeg));
+  memset(color, 0, sizeof(color));
+  for (int u = 0; u < n; u++) {
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i];
+      if (Belong[u] != Belong[v]) { dag[Belong[v]].push_back(Belong[u]); indeg[Belong[u]]++; }
+    }
+  }
+  for (int i = 0; i < n; i += 2) {
+    cf[Belong[i]] = Belong[i ^ 1]; cf[Belong[i ^ 1]] = Belong[i];
+  }
+  while (!q1.empty()) { q1.pop(); }
+  while (!q2.empty()) { q2.pop(); }
+  for (int i = 1; i <= scc; i++) { if (indeg[i] == 0) { q1.push(i); } }
+  while (!q1.empty()) {
+    int u = q1.front(); q1.pop();
+    if (color[u] == 0) { color[u] = 'R'; color[cf[u]] = 'B'; }
+    for (int i = 0; i < (int)dag[u].size(); i++) {
+      if (--indeg[dag[u][i]] == 0) { q1.push(dag[u][i]); }
+    }
+  }
+}
+int change(char s[]) {
+  int ret = 0, i = 0;
+  while (s[i] >= '0' && s[i] <= '9') { ret *= 10; ret += s[i++] - '0'; }
+  return (ret << 1) + (s[i] != 'w');
+}
+//POJ3648
+int main() {
+  int n, m, u, v;
+  char s1[10], s2[10];
+  while (scanf("%d%d", &n, &m), (n || m)) {
+    init();
+    while (m--) {
+      scanf("%s%s", s1, s2); u = change(s1); v = change(s2);
+      addedge(u ^ 1, v); addedge(v ^ 1, u);
+    }
+    addedge(1, 0);
+    if (solvable(n << 1)) {
+      solve(n << 1);
+      for (int i = 1; i < n; i++) {
+        //注意这一定是判断color[Belong[
+        if (color[Belong[i << 1]] == 'R') { printf("%dw", i); }
+        else { printf("%dh", i); }
+        putchar(i != n - 1 ? ' ' : '\n');
+      }
+    } else { printf("bad luck\n"); }
+  }
+}
+//最大团
+//搜索 O(n*2^n)
+int mp[N][N], stk[N][N], dp[N], ans;
+bool dfs(int crt, int tot) {
+  if (!crt) {
+    if (tot > ans) { ans = tot; return true; }
+    return false;
+  }
+  for (int i = 0, u, nxt; i < crt; i++) {
+    u = stk[tot][i]; nxt = 0;
+    if (crt - i + tot <= ans) { return false; }
+    if (dp[u] + tot <= ans) { return false; }
+    for (int j = i + 1; j < crt; j++) {
+      int v = stk[tot][j];
+      if (g[u][v]) { stk[tot + 1][nxt++] = v; }
+    }
+    if (dfs(nxt, tot + 1)) { return true; }
+  }
+  return false;
+}
+int maxClique(int n) {
+  ans = 0;
+  for (int i = n - 1, j, k; i >= 0; i--) {
+    for (j = i + 1, k = 0; j < n; j++) {
+      if (g[i][j]) { stk[1][k++] = j; }
+    }
+    dfs(k, 1); dp[i] = ans;
+  }
+  return ans;
+}
+//随机贪心 O(T*n^2)
+const int T = 1000;
+int mp[N][N], id[N], ansn, ans[N]; bool del[N];
+void solve(int n) {
+  memset(del, 0, sizeof(del)); int k = 0;
+  for (int i = 0, j; i < n; i++) {
+    if (del[i]) { continue; }
+    for (j = i + 1, k++; j < n; j++) { if (!mp[id[i]][id[j]]) { del[j] = true; } }
+  }
+  if (k > ansn) {
+    ansn = k;
+    for (int i = k = 0; i < n; i++) { if (!del[i]) { ans[k++] = id[i]; } }
+  }
+}
+void maxClique(int n) {
+  for (int i = 0; i < n; i++) { id[i] = i; }
+  for (int t = 0; t < T; t++) {
+    for (int i = 0; i < n; i++) { swap(id[i], id[rand() % n]); } solve();
+  }
+}
+//最大独立集
+//随机算法 O(T*(V+E))
+const int T = 1000;
+int q[N], pos[N]; bool del[N];
+int solve(int n) {
+  int ans = 0;
+  for (int t = 0; t < T; t++) {
+    int ret = 0, top = n; memset(del, 0, sizeof(del));
+    for (int i = 1; i <= n; i++) { q[i] = pos[i] = i; }
+    while (top) {
+      int x = rand() % top + 1, u = q[x]; q[x] = q[top--]; pos[q[x]] = x; ret++;
+      for (int i = head[u]; ~i; i = nxt[i]) {
+        int v = to[i];
+        if (!del[v]) { del[v] = true; x = pos[v]; q[x] = q[top--]; pos[q[x]] = x; }
+      }
+    }
+    ans = max(ans, ret);
+  }
+  return ans;
+}
+
+==========图论-最短路=========
+//邻接表
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+int head[N], to[M], nxt[M], tot; wtype len[M];
+void init() { tot = 0; memset(head, -1, sizeof(head)); }
+void addedge(int x, int y, wtype z) { to[tot] = y; len[tot] = z; nxt[tot] = head[x]; head[x] = tot++; }
+//Dijkstra + priority_queue + 邻接矩阵 O(V^2)
+typedef int wtype;
+struct Node {
+  int v; wtype w;
+  bool operator<(const Node &r)const { return w > r.w; }
+};
+int n, pre[N]; wtype mp[N][N], dist[N]; bool vis[N]; //邻接矩阵初始化为INF
+void Dijkstra(int src) {
+  memset(dist, 0x3f, sizeof(dist));
+  memset(vis, 0, sizeof(vis)); memset(pre, -1, sizeof(pre));
+  priority_queue<Node> que; que.push((Node) {src, dist[src] = 0});
+  while (!que.empty()) {
+    int u = que.top().v; que.pop();
+    if (vis[u]) { continue; }
+    vis[u] = true;
+    for (int v = 0; v < n; v++) {
+      if (!vis[v] && dist[v] > dist[u] + mp[u][v]) {
+        dist[v] = dist[u] + mp[u][v]; pre[v] = u; que.push((Node) {v, dist[v]});
+      }
+    }
+  }
+}
+//Dijkstra + priority_queue + vector存边 O((V+E)logV)
+typedef int wtype;
+struct Node {
+  int v; wtype w;
+  bool operator<(const Node &r)const { return w > r.w; }
+};
+vector<Node> e[N]; wtype dist[N]; bool vis[N];
+void Dijkstra(int src) {
+  memset(dist, 0x3f, sizeof(dist));
+  memset(vis, 0, sizeof(vis));
+  priority_queue<Node> que; que.push((Node) {src, dist[src] = 0});
+  while (!que.empty()) {
+    int u = que.top().v; que.pop();
+    if (vis[u]) { continue; }
+    vis[u] = true;
+    for (int i = 0; i < (int)e[u].size(); i++) {
+      int v = e[u][i].v; wtype w = e[u][i].w;
+      if (!vis[v] && dist[v] > dist[u] + w) {
+        dist[v] = dist[u] + w; que.push((Node) {v, dist[v]});
+      }
+    }
+  }
+}
+//Dijkstra + priority_queue + 邻接表 O((V+E)logV)
+typedef int wtype;
+struct Node {
+  int v; wtype w;
+  bool operator<(const Node &r)const { return w > r.w; }
+};
+wtype dist[N];
+void Dijkstra(int src) {
+  memset(dist, 0x3f, sizeof(dist));
+  priority_queue<Node> que; que.push((Node) {src, dist[src] = 0});
+  while (!que.empty()) {
+    int u = que.top().v; wtype w = que.top().w; que.pop();
+    if (w > dist[u]) { continue; }
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i];
+      if (dist[v] > len[i] + w) {
+        dist[v] = w + len[i]; que.push((Node) {v, dist[v]});
+      }
+    }
+  }
+}
+//SPFA + queue/stack + vector存边 O(kE)
+typedef int wtype;
+struct Edge { int v; wtype w; };
+vector<Edge> e[N]; int cnt[N], pre[N]; wtype dist[N]; bool vis[N];
+bool SPFA(int src) {
+  memset(dist, 0x3f, sizeof(dist)); dist[src] = 0;
+  memset(cnt, 0, sizeof(cnt)); cnt[src] = 1;
+  memset(vis, 0, sizeof(vis)); vis[src] = true;
+  memset(pre, -1, sizeof(pre));
+  queue<int> que; que.push(src); //stack
+  while (!que.empty()) {
+    int u = que.front(); que.pop();
+    vis[u] = false;
+    for (int i = 0; i < (int)e[u].size(); i++) {
+      int v = e[u][i].v; wtype w = e[u][i].w;
+      if (dist[v] > dist[u] + w) {
+        dist[v] = dist[u] + w; pre[v] = u;
+        if (!vis[v]) {
+          vis[v] = true; que.push(v);
+          if (++cnt[v] > n) { return false; } //有负环回路
+        }
+      }
+    }
+  }
+  return true; //没有负环回路
+}
+//SPFA + SLF + LLL + 邻接表 O(kE)
+typedef int wtype;
+wtype dist[N];
+bool vis[M];
+void SPFA(int src) {
+  memset(dist, 0x3f, sizeof(dist)); dist[src] = 0;
+  memset(vis, 0, sizeof(vis)); vis[src] = true;
+  deque<int> que; que.push_back(src);
+  ll sum = 0;
+  while (!que.empty()) {
+    int u = que.front(); que.pop_front();
+    if (!que.empty() && (ll)dist[u] * que.size() > sum) { que.push_back(u); continue; }
+    sum -= dist[u]; vis[u] = false;
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i]; wtype d = dist[u] + len[i];
+      if (d < dist[v]) {
+        if (vis[v]) { sum += d - dist[v]; }
+        dist[v] = d;
+        if (!vis[v]) {
+          if (!que.empty() && dist[que.front()] > dist[v]) { que.push_front(v); }
+          else { que.push_back(v); }
+          sum += dist[v]; vis[v] = true;
+        }
+      }
+    }
+  }
+}
+//差分约束系统
+//a向b连一条权值为c的有向边表示b ? a <= c, 用SPFA判断是否存在负环, 存在即无解
+//Bellman-Ford + vector O(VE)
+//可以处理负边权图, 可以判断是否存在负环回路, 当且仅当图中不包含从源点可达的负权回路时返回true
+typedef int wtype;
+struct Edge { int u, v; wtype w; };
+vector<Edge> e;
+wtype dist[N];
+bool BellmanFord(int src) {
+  memset(dist, 0x3f, sizeof(dist)); dist[src] = 0;
+  for (int i = 1; i < n; i++) {
+    bool flag = false;
+    for (int j = 0; j < (int)e.size(); j++) {
+      int u = e[j].u, v = e[j].v; wtype w = e[j].w;
+      if (dist[v] > dist[u] + w) { dist[v] = dist[u] + w; flag = true; }
+    }
+    if (!flag) { return true; } //没有负环回路
+  }
+  for (int j = 0; j < (int)e.size(); j++) {
+    int u = e[j].u, v = e[j].v; wtype w = e[j].w;
+    if (dist[v] > dist[u] + w) { return false; } //有负环回路
+  }
+  return true; //没有负环回路
+}
+//Floyd 带路径记录 O(V^3)
+typedef int wtype;
+int n, pre[N][N]; wtype mp[N][N]; //初始化为INF
+void Floyd() {
+  for (int i = 1; i <= n; i++) {
+    for (int j = 1; j <= n; j++) { pre[i][j] = (i == j) ? -1 : i; }
+  }
+  for (int k = 1; k <= n; k++) {
+    for (int i = 1; i <= n; i++) {
+      for (int j = 1; j <= n; j++) {
+        if (mp[i][k] + mp[k][j] < mp[i][j]) {
+          mp[i][j] = mp[i][k] + mp[k][j]; pre[i][j] = pre[k][j];
+        }
+      }
+    }
+  }
+}
+//无负权图的最小环
+//有向图: mp[i][i] = INF, 然后跑floyd, ans = min(d[i][i])
+//求无向图中经过至少3个点的最小环:
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+int n; wtype mp[N][N], d[N][N]; //初始化为INF
+wtype cycFloyd() {
+  memcpy(d, mp, sizeof(mp)); wtype ret = INF;
+  for (int k = 1; k <= n; k++) {
+    for (int i = 1; i < k; i++) {
+      for (int j = i + 1; j < k; j++) {
+        ans = min(ans, d[i][j] + mp[i][k] + mp[k][j]);
+      }
+    }
+    for (int i = 1; i <= n; i++) {
+      for (int j = 1; j <= n; j++) {
+        d[i][j] = min(d[i][j], d[i][k] + d[k][j]);
+      }
+    }
+  }
+}
+//Astar求k短路
+typedef int wtype;
+const wtype INF = 0x3f3f3f3f;
+int head[N], to[M], nxt[M], tot; wtype len[M];
+int rhead[N], rto[M], rnxt[M], rtot; wtype rlen[M];
+void init() { tot = rtot = 0; memset(head, -1, sizeof(head)); memset(rhead, -1, sizeof(rhead)); }
+void addedge(int x, int y, wtype z) {
+  to[tot] = y; len[tot] = z; nxt[tot] = head[x]; head[x] = tot++;
+  rto[rtot] = x; rlen[rtot] = z; rnxt[rtot] = rhead[y]; rhead[y] = rtot++;
+}
+struct Node {
+  int v; wtype w;
+  bool operator<(const Node &r)const { return w > r.w; }
+};
+int vis[N]; wtype dist[N], ans[N]; //前k短路
+void Astar(int src, int des, int k) {
+  memset(dist, 0x3f, sizeof(dist)); memset(ans, 0x3f, sizeof(ans)); memset(vis, 0, sizeof(vis));
+  priority_queue<Node> que; que.push((Node) {des, dist[des] = 0});
+  while (!que.empty()) {
+    int u = que.top().v; wtype w = que.top().w; que.pop();
+    if (w > dist[u]) { continue; }
+    for (int i = rhead[u]; ~i; i = rnxt[i]) {
+      int v = rto[i];
+      if (dist[v] > rlen[i] + w) {
+        dist[v] = w + rlen[i]; que.push((Node) {v, dist[v]});
+      }
+    }
+  }
+  if (dist[src] < INF) { que.push((Node) {src, dis[src]}); }
+  while (!que.empty()) {
+    int u = que.top().v; wtype w = que.top().w; que.pop();
+    if (u == des && vis[des] <= k) { ans[vis[des]] = w; }
+    if (vis[u] > k) { continue; }
+    for (int i = head[u]; ~i; i = nxt[i]) {
+      int v = to[i]; que.push((Node) {v, w - dist[u] + dist[v] + len[i]});
+    }
+  }
+}
+
+
+===========Tarjan 算法求一个无向图的桥
+int dfs[MAXN], low[MAXN], tim = 0;
+inline void Dfs(int u) {
+	dfs[u] = low[u] = ++tim;
+	for (Edge *p = a[u]; p; p = p->next) if (p->flag) {
+		if (!dfs[p->y]) {
+			p->opt->flag = false;
+			Dfs(p->y);
+			low[u] = min(low[u], low[p->y]);
+		} else low[u] = min(low[u], dfs[p->y]);
+	}
+	for (Edge *p = a[u]; p; p = p->next) if (p->opt->flag == false && low[p->y] > dfs[u]) {
+		p->bridge = p->opt->bridge = true;
+	}
+}
+
+=========Hopcroft 算法，其中二分图左边点的编号为1-n，右边点编号为n+1 - N，match[i]表示左边的i匹配上的右边的点，0无匹配，link[i]表示右边的i匹配上的左边的点，0无匹配
+
+const int MAXN = 10000;
+int match[MAXN];  
+int levelx[MAXN], levely[MAXN], link[MAXN]; 
+int d[MAXN]; 
+inline bool Bfs(void) { 
+	int head = 1, tail = 0; 
+	memset(levely, 0, sizeof levely); 
+	for (int i = 1; i <= n; i++) { 
+		if (!match[i]) d[++tail] = i; 
+		levelx[i] = 0; 
+	} 
+	bool ret = false; 
+	while (head <= tail) { 
+		int now = d[head++]; 
+		for (Edge *p = a[now]; p; p = p->next) if (levely[p->y] == 0) { 
+			levely[p->y] = levelx[now] + 1; 
+			if (link[p->y] == 0) ret = true; 
+			else levelx[link[p->y]] = levely[p->y] + 1, d[++tail] = link[p->y]; 
+		} 
+	} 
+	return ret; 
+} 
+bool Find(int u) { 
+	for (Edge *p = a[u]; p; p = p->next) if (levely[p->y] == levelx[u] + 1) { 
+		levely[p->y] = 0; 
+		if (link[p->y] == 0 || Find(link[p->y])) { 
+			match[u] = p->y; link[p->y] = u; 
+			return true; 
+		} 
+	} 
+	return false; 
+} 
+inline void Match(void) { 
+	while (Bfs()) 
+		for (int i = 1; i <= n; i++) 
+			if (!match[i]) Find(i); 
+} 
+inline void clear(void) {
+	memset(match, 0, sizeof match);
+	memset(link, 0, sizeof link);
+	memset(levelx, 0, sizeof levelx);
+	memset(levely, 0, sizeof levely);
+}
+
+
+=============KM算法求最小权完美匹配（注意不是全局最大权匹配），如果两边点数不相等或者非完美二分图，则可以添加虚拟点和权值为inf的边
+
+若求最大权匹配，则将边权取反即可
+const int MAXN = 210;
+int nx, ny; // 左边的点标号从1到nx，右边点标号从1到ny
+long long inf, cost[MAXN][MAXN], fx[MAXN], fy[MAXN], dist[MAXN]; //权值若为long long的话，只需改动此行即可
+int used[MAXN], maty[MAXN], which[MAXN];
+inline void AddEdge(int x, int y, int z)
+{
+    cost[x][y] = z;
+}
+pair<int, long long> KM(void)
+{
+    for (int x = 1; x <= nx; x++)
+    {
+        int y0 = 0;
+        maty[0] = x;
+        for (int y = 0; y <= ny; y++)
+        {
+            dist[y] = inf + 1;
+            used[y] = false;
+        }
+        do
+        {
+            used[y0] = true;
+            int x0 = maty[y0], y1;
+            long long delta = inf + 1;
+            for (int y = 1; y <= ny; y++) if (!used[y])
+                {
+                    long long curdist = cost[x0][y] - fx[x0] - fy[y];
+                    if (curdist < dist[y])
+                    {
+                        dist[y] = curdist;
+                        which[y] = y0;
+                    }
+                    if (dist[y] < delta)
+                    {
+                        delta = dist[y];
+                        y1 = y;
+                    }
+                }
+            for (int y = 0; y <= ny; y++) if (used[y])
+                {
+                    fx[maty[y]] += delta;
+                    fy[y] -= delta;
+                }
+                else dist[y] -= delta;
+            y0 = y1;
+        }
+        while (maty[y0] != 0);
+        do
+        {
+            int y1 = which[y0];
+            maty[y0] = maty[y1];
+            y0 = y1;
+        }
+        while (y0);
+    }
+    long long ret = 0;
+    int npair = 0;
+    for (int y = 1; y <= ny; y++)
+    {
+        int x = maty[y];
+        if (cost[x][y] < inf)
+        {
+            ret += cost[x][y];
+            npair++;
+        }
+    }
+    return make_pair(npair, ret);
+}
+inline void clear(void)
+{
+    memset(fx, 0x9f, sizeof fx);
+    memset(fy, 0x9f, sizeof fy);
+    memset(cost, 0x3f, sizeof cost);
+    memset(maty, 0, sizeof maty);
+    inf = cost[0][0];
+}
+
+==================Dinic求解最大流，有当前弧优化
+struct Edge
+{
+    int y, f;
+    Edge *next, *opt;
+}*a[MAXN], DATA[MAXM << 1], *data = DATA;
+inline void Add(int x, int y, int c)
+{
+    Edge *tmp = data++;
+    tmp->y = y;
+    tmp->f = c, tmp->next = a[x];
+    a[x] = tmp;
+    tmp = data++;
+    tmp->y = x;
+    tmp->f = 0;
+    tmp->next = a[y];
+    a[y] = tmp;
+    a[x]->opt = a[y];
+    a[y]->opt = a[x];
+}
+int n, m, vs, vt, L;
+int level[MAXN], d[MAXN];
+inline bool Bfs(void)
+{
+    memset(level, -1, sizeof level);
+    d[1] = vs;
+    level[vs] = 0;
+    int head = 1, tail = 1;
+    while (head <= tail)
+    {
+        int now = d[head++];
+        e[now] = a[now];
+        for (Edge *p = a[now]; p; p = p->next) if (p->f > 0&& level[p->y] == -1)
+                level[d[++tail] = p->y] = level[now] + 1;
+    }
+    return level[vt] != -1;
+}
+inline int Extend(int u, int sum)
+{
+    if (u == vt) return sum;
+    int r = 0, t;
+    for (Edge *p = e[u]; p && r < sum; p = p->next) if (level[p->y] == level[u] + 1 && p->f > 0)
+        {
+            t = std::min(sum - r, p->f);
+            t = Extend(p->y, t);
+            p->f -= t, p->opt->f += t, r += t;
+            e[u] = p;
+        }
+    if (!r) level[u] = -1;
+    return r;
+}
+inline int Dinic(void)
+{
+    int r = 0, t;
+    while (Bfs())
+    {
+        while ((t = Extend(vs, inf))) r += t;
+    }
+    return r;
+}
+
+
+============spfa求解最小费用最大流
+struct Edge
+{
+    int y, f, c;
+    Edge *next, *opt;
+    Edge(int y, int f, int c, Edge *next):y(y), f(f), c(c), next(next) {}
+}*a[MAXN];
+inline void AddEdge(int x, int y, int f, int c)
+{
+    a[x] = new Edge(y, f, c, a[x]);
+    a[y] = new Edge(x, 0, -c, a[y]);
+    a[x]->opt = a[y];
+    a[y]->opt = a[x];
+}
+int d[MAXN], vis[MAXN], dis[MAXN];
+Edge *path[MAXN];
+inline pair<int, int> Spfa(void)
+{
+    int Flow = 0, Cost = 0;
+    while (true)
+    {
+        memset(vis, 0, sizeof vis);
+        memset(dis, 0x7f, sizeof dis);
+        memset(path, 0, sizeof path);
+        int head = 1, tail = 1, sum = 1;
+        d[1] = vs;
+        vis[vs] = true;
+        dis[vs] = 0;
+        while (sum)
+        {
+            int now = d[head++];
+            if (head == MAXN) head = 1;
+            sum--;
+            for (Edge *p = a[now]; p; p = p->next) if (p->f > 0 && dis[p->y] > dis[now] + p->c)
+                {
+                    dis[p->y] = dis[now] + p->c;
+                    path[p->y] = p;
+                    if (!vis[p->y])
+                    {
+                        ++tail;
+                        if (tail == MAXN) tail = 1;
+                        sum++;
+                        d[tail] = p->y;
+                        vis[p->y] = true;
+                    }
+                }
+            vis[now] = false;
+        }
+        if (dis[vt] == dis[0]) return make_pair(Flow, Cost);
+        int tmp = vt, Min = ~0U>>1;
+        while (path[tmp])
+        {
+            Min = min(Min, path[tmp]->f);
+            tmp = path[tmp]->opt->y;
+        }
+        Flow += Min;
+        tmp = vt;
+        while (path[tmp])
+        {
+            path[tmp]->f -= Min;
+            path[tmp]->opt->f += Min;
+            Cost += Min * path[tmp]->c;
+            tmp = path[tmp]->opt->y;
+        }
+    }
+    return make_pair(Flow, Cost);
+}
+
+================最小树形图算法
+使用邻接矩阵存图，返回-1表示无最小树形图。否则，tmp[i].second表示i的入边
+map[i][j] = 1 表示表示存在一条从i到j的有向边
+dis[i][j] 表示从i到j边的长度
+
+typedef pair<int, int> PII;
+PII tmp[MAXN];
+int dis[MAXN][MAXN];
+int map[MAXN][MAXN];
+int vis[MAXN], q[MAXN], inp[MAXN];
+int Dfs(int u)
+{
+    vis[u] = true;
+    int ret = 1;
+    for (int i = 1; i <= n; i++) if (map[u][i] && !vis[i]) ret += Dfs(i);
+    return ret;
+}
+int Zhuliu(void)
+{
+    memset(map, 0, sizeof map);
+    memset(vis, 0, sizeof vis);
+    if (Dfs(1) != n) return -1;
+    int done = 0;
+    while (true)
+    {
+        memset(vis, 0, sizeof vis);
+        memset(inp, 0, sizeof inp);
+        int Ans = 0;
+        for (int i = 1; i <= n; i++) vis[i] = i;
+        for (int i = 2; i <= n; i++)
+        {
+            tmp[i] = PII(1000000000, 0);
+            for (int j = 1; j <= n; j++) if (map[j][i] == 1) tmp[i] = min(tmp[i], PII(dis[j][i], j));
+            inp[tmp[i].second]++;
+            if (tmp[i].second) Ans += tmp[i].first;
+        }
+        int head = 1, tail = 0;
+        for (int i = 1; i <= n; i++) if (!inp[i]) q[++tail] = i;
+        while (head <= tail)
+        {
+            int now = q[head++];
+            if (!--inp[tmp[now].second]) q[++tail] = tmp[now].second;
+        }
+        bool ok = true;
+        for (int i = 1, t; i <= n; i++) if (inp[i] > 0)
+            {
+                t = i;
+                ok = false;
+                do
+                {
+                    inp[t] = -i;
+                    t = tmp[t].second;
+                    vis[t] = i;
+                }
+                while (t != i);
+            }
+        if (ok) return Ans + done;
+        for (int i = 1; i <= n; i++) if (inp[i] < 0)
+            {
+                done += tmp[i].first;
+                for (int j = 1; j <= n; j++) if (vis[j] != vis[i])
+                    {
+                        if (map[i][j])
+                        {
+                            map[vis[i]][vis[j]] = 1;
+                            dis[vis[i]][vis[j]] = min(dis[vis[i]][vis[j]], dis[i][j]);
+                        }
+                        if (map[j][i])
+                        {
+                            dis[vis[j]][vis[i]] = min(dis[vis[j]][vis[i]], dis[j][i] - tmp[i].first);
+                            map[vis[j]][vis[i]] = 1;
+                        }
+                    }
+                if (vis[i] != i) for (int j = 1; j <= n; j++) map[i][j] = map[j][i] = 0;
+            }
+    }
+}
+
