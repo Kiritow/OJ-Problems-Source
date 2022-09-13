@@ -1,0 +1,55 @@
+class Trie {
+public:
+    struct Node
+    {
+        bool ends;
+        Node* next[26];
+
+        Node()
+        {
+            ends = false;
+            memset(next, 0, sizeof(next));
+        }
+    };
+    Node* root;
+
+    Trie() {
+        root = new Node;
+    }
+
+    inline void stepDownInsert(const string& word, int index, Node* current) {
+        if (index >= word.size()) {
+            current->ends = true;
+            return;
+        }
+
+        if (!current->next[word[index] - 'a']) {
+            current->next[word[index] - 'a'] = new Node;
+        }
+        stepDownInsert(word, index + 1, current->next[word[index] - 'a']);
+    }
+
+    void insert(string word) {
+        stepDownInsert(word, 0, root);
+    }
+
+    inline bool stepDownSearch(const string& word, int index, Node* current) {
+        if (index >= word.size()) return current->ends;
+        if (current->next[word[index] - 'a']) return stepDownSearch(word, index + 1, current->next[word[index] - 'a']);
+        return false;
+    }
+
+    bool search(string word) {
+        return stepDownSearch(word, 0, root);
+    }
+
+    inline bool stepDownPrefix(const string& word, int index, Node* current) {
+        if (index >= word.size()) return true;
+        if (current->next[word[index] - 'a']) return stepDownPrefix(word, index + 1, current->next[word[index] - 'a']);
+        return false;
+    }
+
+    bool startsWith(string prefix) {
+        return stepDownPrefix(prefix, 0, root);
+    }
+};
