@@ -1,2 +1,5 @@
-#LeetCode Online Judge
-[Goto LeetCode HomePage](https://leetcode.com/ "LeetCode Online Judge")  
+# LeetCode
+
+[LeetCode Global](https://leetcode.com)  
+
+[LeetCode CN](https://leetcode.cn)
